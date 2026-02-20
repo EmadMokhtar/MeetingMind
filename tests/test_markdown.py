@@ -1,0 +1,208 @@
+"""Test markdown generation."""
+
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+from meetingmind.markdown import generate_markdown, generate_output_filename
+from meetingmind.models import (
+    ActionPoint,
+    ActionPoints,
+    ImportantMention,
+    ImportantMentions,
+    KeyInsights,
+    MeetingTone,
+    Recap,
+    Summary,
+    TodoItem,
+    TodoList,
+    TranscriptAnalysis,
+)
+
+
+def test_generate_output_filename_with_placeholders(subtests):
+    """Test output filename generation with placeholders."""
+    template = "{source_stem}_{timestamp}.md"
+    source_file = Path("/tmp/meeting_notes.txt")
+    timestamp = datetime(2024, 1, 15, 10, 30, 45)
+
+    filename = generate_output_filename(template, source_file, timestamp)
+
+    with subtests.test("contains_stem"):
+        assert "meeting_notes" in filename
+
+    with subtests.test("contains_timestamp"):
+        assert "20240115_103045" in filename
+
+    with subtests.test("ends_with_md"):
+        assert filename.endswith(".md")
+
+
+def test_generate_output_filename_custom_template(subtests):
+    """Test custom filename template."""
+    template = "report_{source_stem}.md"
+    source_file = Path("/tmp/daily.txt")
+    timestamp = datetime.now()
+
+    filename = generate_output_filename(template, source_file, timestamp)
+
+    with subtests.test("custom_format"):
+        assert filename == "report_daily.md"
+
+
+def test_generate_output_filename_timestamp_only(subtests):
+    """Test filename with only timestamp."""
+    template = "{timestamp}.md"
+    source_file = Path("/tmp/meeting.txt")
+    timestamp = datetime(2024, 1, 15, 10, 30, 45)
+
+    filename = generate_output_filename(template, source_file, timestamp)
+
+    with subtests.test("timestamp_format"):
+        assert filename == "20240115_103045.md"
+
+
+def test_generate_markdown_complete(subtests):
+    """Test markdown generation with complete analysis."""
+    analysis = TranscriptAnalysis(
+        source_file="meeting.txt",
+        processed_at=datetime(2024, 1, 15, 10, 30),
+        summary=Summary(content="Great meeting", key_topics=["Planning", "Budget"]),
+        action_points=ActionPoints(
+            items=[
+                ActionPoint(description="Review code", owner="Alice", priority="high"),
+                ActionPoint(description="Update docs", owner="Bob", priority="low"),
+            ]
+        ),
+        todo_list=TodoList(
+            items=[
+                TodoItem(task="Write tests", context="For new feature"),
+                TodoItem(task="Deploy to staging"),
+            ]
+        ),
+        important_mentions=ImportantMentions(
+            items=[
+                ImportantMention(
+                    person="CEO", context="Quarterly review", significance="Decision maker"
+                )
+            ]
+        ),
+        recap=Recap(
+            highlights=["Successful sprint"],
+            decisions_made=["Adopt new framework"],
+            next_steps=["Schedule training"],
+        ),
+        meeting_tone=MeetingTone(
+            overall_sentiment="positive",
+            energy_level="high",
+            collaboration_quality="excellent",
+            notes="Great teamwork",
+        ),
+        key_insights=KeyInsights(
+            insights=["Team velocity improving"],
+            patterns=["Better communication"],
+            recommendations=["Continue current approach"],
+        ),
+    )
+
+    markdown = generate_markdown(analysis)
+
+    with subtests.test("has_title"):
+        assert "# Meeting Analysis: meeting.txt" in markdown
+
+    with subtests.test("has_summary_section"):
+        assert "## 📋 Summary" in markdown
+        assert "Great meeting" in markdown
+
+    with subtests.test("has_key_topics"):
+        assert "Planning" in markdown
+        assert "Budget" in markdown
+
+    with subtests.test("has_action_points_section"):
+        assert "## ✅ Action Points" in markdown
+        assert "Review code" in markdown
+        assert "**Owner:** Alice" in markdown
+
+    with subtests.test("has_priority_emojis"):
+        assert "🔴" in markdown  # high priority
+        assert "🟢" in markdown  # low priority
+
+    with subtests.test("has_todo_section"):
+        assert "## 📝 Todo List" in markdown
+        assert "- [ ] Write tests" in markdown
+        assert "*Context: For new feature*" in markdown
+
+    with subtests.test("has_mentions_section"):
+        assert "## 👥 Important Mentions" in markdown
+        assert "CEO" in markdown
+
+    with subtests.test("has_recap_section"):
+        assert "## 🔄 Recap" in markdown
+        assert "Successful sprint" in markdown
+
+    with subtests.test("has_tone_section"):
+        assert "## 🎭 Meeting Tone" in markdown
+        assert "Positive" in markdown
+
+    with subtests.test("has_insights_section"):
+        assert "## 💡 Key Insights" in markdown
+        assert "Team velocity improving" in markdown
+
+    with subtests.test("has_footer"):
+        assert "*Generated by MeetingMind*" in markdown
+
+
+def test_generate_markdown_empty_sections(subtests):
+    """Test markdown generation with empty sections."""
+    analysis = TranscriptAnalysis(
+        source_file="empty.txt",
+        summary=Summary(content="Brief summary"),
+        action_points=ActionPoints(items=[]),
+        todo_list=TodoList(items=[]),
+        important_mentions=ImportantMentions(items=[]),
+        recap=Recap(),
+        meeting_tone=MeetingTone(),
+        key_insights=KeyInsights(),
+    )
+
+    markdown = generate_markdown(analysis)
+
+    with subtests.test("has_empty_action_points_message"):
+        assert "*No action points identified.*" in markdown
+
+    with subtests.test("has_empty_todo_message"):
+        assert "*No todo items identified.*" in markdown
+
+    with subtests.test("has_empty_mentions_message"):
+        assert "*No important mentions identified.*" in markdown
+
+
+def test_generate_markdown_sections_present(subtests):
+    """Test all required sections are present in markdown."""
+    analysis = TranscriptAnalysis(
+        source_file="test.txt",
+        summary=Summary(content="Summary"),
+        action_points=ActionPoints(),
+        todo_list=TodoList(),
+        important_mentions=ImportantMentions(),
+        recap=Recap(),
+        meeting_tone=MeetingTone(),
+        key_insights=KeyInsights(),
+    )
+
+    markdown = generate_markdown(analysis)
+
+    required_sections = [
+        "## 📋 Summary",
+        "## ✅ Action Points",
+        "## 📝 Todo List",
+        "## 👥 Important Mentions",
+        "## 🔄 Recap",
+        "## 🎭 Meeting Tone",
+        "## 💡 Key Insights",
+    ]
+
+    for section in required_sections:
+        with subtests.test(section=section):
+            assert section in markdown
