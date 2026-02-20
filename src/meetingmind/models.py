@@ -92,9 +92,7 @@ class TranscriptAnalysis(BaseModel):
     """Complete analysis aggregated by manager agent."""
 
     source_file: str = Field(..., description="Original transcript filename")
-    processed_at: datetime = Field(
-        default_factory=lambda: datetime.now(), description="When analysis was completed"
-    )
+    processed_at: datetime = Field(description="When analysis was completed")
     summary: Summary
     action_points: ActionPoints
     todo_list: TodoList

@@ -66,11 +66,13 @@ class StateStore:
             with open(temp_file, "w") as f:
                 json.dump(self._state.model_dump(mode="json"), f, indent=2, default=str)
             temp_file.replace(self.state_file)
-        except Exception:
-            # Clean up temp file on error
-            if temp_file.exists():
-                temp_file.unlink()
-            raise
+        except Exception as save_error:
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+            except Exception:
+                pass  # Ignore cleanup errors to preserve original exception
+            raise save_error
 
     def is_processed(self, file_path: Path) -> bool:
         """Check if a file has already been processed."""

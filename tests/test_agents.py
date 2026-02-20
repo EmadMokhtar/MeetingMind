@@ -53,14 +53,14 @@ async def test_summary_agent_with_test_model(sample_transcript, subtests):
         key_topics=["Q4 Goals", "API Performance", "Documentation"],
     )
 
-    with summary_agent.override(model=TestModel(custom_output_text=test_summary.model_dump_json())):
+    with summary_agent.override(model=TestModel(custom_output_args=test_summary)):
         result = await summary_agent.run(sample_transcript)
 
         with subtests.test("returns_summary"):
-            assert isinstance(result.data, Summary)
+            assert isinstance(result.output, Summary)
 
         with subtests.test("has_content"):
-            assert len(result.data.content) > 0
+            assert len(result.output.content) > 0
 
 
 @pytest.mark.asyncio
@@ -74,15 +74,15 @@ async def test_action_points_agent_with_test_model(sample_transcript, subtests):
     )
 
     with action_points_agent.override(
-        model=TestModel(custom_output_text=test_actions.model_dump_json())
+        model=TestModel(custom_output_args=test_actions)
     ):
         result = await action_points_agent.run(sample_transcript)
 
         with subtests.test("returns_action_points"):
-            assert isinstance(result.data, ActionPoints)
+            assert isinstance(result.output, ActionPoints)
 
         with subtests.test("has_items"):
-            assert isinstance(result.data.items, list)
+            assert isinstance(result.output.items, list)
 
 
 @pytest.mark.asyncio
@@ -95,14 +95,14 @@ async def test_todo_list_agent_with_test_model(sample_transcript, subtests):
         ]
     )
 
-    with todo_list_agent.override(model=TestModel(custom_output_text=test_todos.model_dump_json())):
+    with todo_list_agent.override(model=TestModel(custom_output_args=test_todos)):
         result = await todo_list_agent.run(sample_transcript)
 
         with subtests.test("returns_todo_list"):
-            assert isinstance(result.data, TodoList)
+            assert isinstance(result.output, TodoList)
 
         with subtests.test("has_items"):
-            assert isinstance(result.data.items, list)
+            assert isinstance(result.output.items, list)
 
 
 @pytest.mark.asyncio
@@ -114,14 +114,14 @@ async def test_recap_agent_with_test_model(sample_transcript, subtests):
         next_steps=["Bob to create plan by Friday"],
     )
 
-    with recap_agent.override(model=TestModel(custom_output_text=test_recap.model_dump_json())):
+    with recap_agent.override(model=TestModel(custom_output_args=test_recap)):
         result = await recap_agent.run(sample_transcript)
 
         with subtests.test("returns_recap"):
-            assert isinstance(result.data, Recap)
+            assert isinstance(result.output, Recap)
 
         with subtests.test("has_highlights"):
-            assert isinstance(result.data.highlights, list)
+            assert isinstance(result.output.highlights, list)
 
 
 @pytest.mark.asyncio
@@ -135,15 +135,15 @@ async def test_meeting_tone_agent_with_test_model(sample_transcript, subtests):
     )
 
     with meeting_tone_agent.override(
-        model=TestModel(custom_output_text=test_tone.model_dump_json())
+        model=TestModel(custom_output_args=test_tone)
     ):
         result = await meeting_tone_agent.run(sample_transcript)
 
         with subtests.test("returns_tone"):
-            assert isinstance(result.data, MeetingTone)
+            assert isinstance(result.output, MeetingTone)
 
         with subtests.test("has_sentiment"):
-            assert result.data.overall_sentiment in ["positive", "neutral", "negative", "mixed"]
+            assert result.output.overall_sentiment in ["positive", "neutral", "negative", "mixed"]
 
 
 @pytest.mark.asyncio
@@ -156,15 +156,15 @@ async def test_key_insights_agent_with_test_model(sample_transcript, subtests):
     )
 
     with key_insights_agent.override(
-        model=TestModel(custom_output_text=test_insights.model_dump_json())
+        model=TestModel(custom_output_args=test_insights)
     ):
         result = await key_insights_agent.run(sample_transcript)
 
         with subtests.test("returns_insights"):
-            assert isinstance(result.data, KeyInsights)
+            assert isinstance(result.output, KeyInsights)
 
         with subtests.test("has_insights"):
-            assert isinstance(result.data.insights, list)
+            assert isinstance(result.output.insights, list)
 
 
 @pytest.mark.asyncio

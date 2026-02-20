@@ -1,6 +1,6 @@
 """Test markdown generation."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -157,6 +157,7 @@ def test_generate_markdown_empty_sections(subtests):
     """Test markdown generation with empty sections."""
     analysis = TranscriptAnalysis(
         source_file="empty.txt",
+        processed_at=datetime.now(timezone.utc),
         summary=Summary(content="Brief summary"),
         action_points=ActionPoints(items=[]),
         todo_list=TodoList(items=[]),
@@ -182,6 +183,7 @@ def test_generate_markdown_sections_present(subtests):
     """Test all required sections are present in markdown."""
     analysis = TranscriptAnalysis(
         source_file="test.txt",
+        processed_at=datetime.now(timezone.utc),
         summary=Summary(content="Summary"),
         action_points=ActionPoints(),
         todo_list=TodoList(),

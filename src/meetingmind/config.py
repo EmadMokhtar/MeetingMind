@@ -70,10 +70,13 @@ class Settings(BaseSettings):
 
     def get_watcher_config(self) -> WatcherConfig:
         """Convert settings to watcher config."""
+        extensions = [ext.strip() for ext in self.file_extensions.split(",") if ext.strip()]
+        if not extensions:
+            raise ValueError("At least one file extension must be specified in MEETINGMIND_FILE_EXTENSIONS")
         return WatcherConfig(
             input_folder=self.input_folder,
             output_folder=self.output_folder,
-            file_extensions=[ext.strip() for ext in self.file_extensions.split(",")],
+            file_extensions=extensions,
             poll_interval_seconds=self.poll_interval_seconds,
             stability_check_seconds=self.stability_check_seconds,
             max_concurrent_files=self.max_concurrent_files,

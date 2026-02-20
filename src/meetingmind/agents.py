@@ -1,7 +1,7 @@
 """Pydantic AI agents for transcript analysis."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic_ai import Agent, RunContext
@@ -27,6 +27,11 @@ class _LazyAgent:
         self._agent = None
         self._register_tools_callback = register_tools_callback
         self._tools_registered = False
+
+    @property
+    def result_type(self):
+        """Get the configured result type for this agent."""
+        return self._agent_kwargs.get('result_type')
 
     def _get_agent(self) -> Agent:
         """Get or create the underlying agent."""
@@ -192,43 +197,43 @@ def _register_manager_tools(agent: Agent) -> None:
     async def get_summary(ctx: RunContext[ManagerContext]) -> Summary:
         """Get meeting summary from summary worker agent."""
         result = await summary_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
     @agent.tool
     async def get_action_points(ctx: RunContext[ManagerContext]) -> ActionPoints:
         """Get action points from action points worker agent."""
         result = await action_points_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
     @agent.tool
     async def get_todo_list(ctx: RunContext[ManagerContext]) -> TodoList:
         """Get todo list from todo list worker agent."""
         result = await todo_list_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
     @agent.tool
     async def get_important_mentions(ctx: RunContext[ManagerContext]) -> ImportantMentions:
         """Get important mentions from important mentions worker agent."""
         result = await important_mentions_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
     @agent.tool
     async def get_recap(ctx: RunContext[ManagerContext]) -> Recap:
         """Get meeting recap from recap worker agent."""
         result = await recap_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
     @agent.tool
     async def get_meeting_tone(ctx: RunContext[ManagerContext]) -> MeetingTone:
         """Get meeting tone analysis from tone worker agent."""
         result = await meeting_tone_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
     @agent.tool
     async def get_key_insights(ctx: RunContext[ManagerContext]) -> KeyInsights:
         """Get key insights from insights worker agent."""
         result = await key_insights_agent.run(ctx.deps.transcript)
-        return result.data
+        return result.output
 
 
 # Manager agent - orchestrates workers and aggregates results
@@ -264,8 +269,8 @@ async def analyze_transcript(transcript: str, source_file: str) -> TranscriptAna
     result = await manager_agent.run(prompt, deps=context)
 
     # Ensure the source_file and processed_at are set correctly
-    analysis = result.data
+    analysis = result.output
     analysis.source_file = source_file
-    analysis.processed_at = datetime.now()
+    analysis.processed_at = datetime.now(timezone.utc)
 
     return analysis

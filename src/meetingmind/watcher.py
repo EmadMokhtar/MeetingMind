@@ -2,7 +2,6 @@
 
 import asyncio
 import signal
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -32,9 +31,11 @@ class TranscriptWatcher:
         """Handle shutdown signals."""
         print(f"\nReceived signal {signum}, initiating graceful shutdown...")
         self._running = False
-        # Schedule the shutdown event to be set in the event loop
-        if asyncio.get_event_loop().is_running():
-            asyncio.get_event_loop().call_soon_threadsafe(self._shutdown_event.set)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.call_soon_threadsafe(self._shutdown_event.set)
+        except RuntimeError:
+            pass  # No running loop
 
     def _get_eligible_files(self) -> list[Path]:
         """Get list of files eligible for processing."""
@@ -50,7 +51,7 @@ class TranscriptWatcher:
 
         return eligible
 
-    def _is_file_stable(self, file_path: Path) -> bool:
+    async def _is_file_stable(self, file_path: Path) -> bool:
         """
         Check if file is stable (not being written to).
 
@@ -58,7 +59,7 @@ class TranscriptWatcher:
         """
         try:
             size_before = file_path.stat().st_size
-            time.sleep(self.config.stability_check_seconds)
+            await asyncio.sleep(self.config.stability_check_seconds)
             size_after = file_path.stat().st_size
             return size_before == size_after
         except OSError:
@@ -71,7 +72,7 @@ class TranscriptWatcher:
                 print(f"Processing: {file_path.name}")
 
                 # Check file stability
-                if not await asyncio.to_thread(self._is_file_stable, file_path):
+                if not await self._is_file_stable(file_path):
                     print(f"  Skipping (file not stable): {file_path.name}")
                     return
 
@@ -119,9 +120,11 @@ class TranscriptWatcher:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Report any errors
-        errors = [r for r in results if isinstance(r, Exception)]
+        errors = [(files[i], r) for i, r in enumerate(results) if isinstance(r, Exception)]
         if errors:
-            print(f"Completed batch with {len(errors)} error(s)")
+            print(f"Completed batch with {len(errors)} error(s):")
+            for file_path, error in errors:
+                print(f"  - {file_path.name}: {error}")
 
     async def watch(self) -> None:
         """Start watching for new transcript files."""
@@ -187,3 +190,37 @@ class TranscriptWatcher:
 
         await self._process_batch(eligible_files)
         return len(eligible_files)
+
+    async def process_single_file(self, file_path: Path) -> None:
+        """
+        Process a single transcript file directly by path.
+
+        Args:
+            file_path: Path to the transcript file to process.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file extension is not in the configured list.
+        """
+        if not file_path.exists():
+            raise FileNotFoundError(f"Transcript file not found: {file_path}")
+
+        if not file_path.is_file():
+            raise ValueError(f"Path is not a file: {file_path}")
+
+        expected_extensions = [
+            ext if ext.startswith(".") else f".{ext}"
+            for ext in self.config.file_extensions
+        ]
+        if file_path.suffix not in expected_extensions:
+            raise ValueError(
+                f"File extension '{file_path.suffix}' not in configured extensions: "
+                f"{self.config.file_extensions}"
+            )
+
+        self._semaphore = asyncio.Semaphore(self.config.max_concurrent_files)
+
+        # Ensure output folder exists
+        self.config.output_folder.mkdir(parents=True, exist_ok=True)
+
+        await self._process_file(file_path)
