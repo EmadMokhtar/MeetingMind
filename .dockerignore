@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .dockerignore — exclude files from Docker build context
+# ─────────────────────────────────────────────────────────────────────────────
+# Prevents unnecessary files from entering the build context, which:
+# - Speeds up builds (less data to upload to daemon)
+# - Avoids leaking secrets
+# - Reduces image size
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+*.egg
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+
+# Test / lint artifacts
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.tox
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Pre-commit hooks
+.pre-commit-config.yaml
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.vim
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files — NEVER copy secrets into the image
+.env
+.env.*
+!.env.example
+
+# Documentation (keep only README for metadata)
+docs/
+*.md
+!README.md
+
+# Docker files themselves (avoid redundant context)
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Makefile (build/dev convenience, not needed in runtime)
+Makefile
+
+# License (included via LABEL metadata)
+LICENSE
+
+# Test files (not needed in production image)
+tests/
+test_*
+*_test.py
+
+# Local data directories (should be volume-mounted instead)
+transcripts/
+output/
+data/
