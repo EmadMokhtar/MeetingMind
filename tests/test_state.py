@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from meetingmind.state import ProcessedFileRecord, ProcessedFilesState, StateStore
+from meetingmind.state import StateStore
 
 
 @pytest.fixture

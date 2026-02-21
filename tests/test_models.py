@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from meetingmind.models import (
     ActionPoint,
     ActionPoints,

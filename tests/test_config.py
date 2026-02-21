@@ -1,11 +1,10 @@
 """Test configuration module."""
 
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from meetingmind.config import Settings, WatcherConfig, load_settings
+from meetingmind.config import Settings, WatcherConfig
 
 
 def test_watcher_config_defaults(subtests):
@@ -127,21 +126,15 @@ def test_get_watcher_config_empty_extensions(subtests):
     """Test get_watcher_config raises ValueError when MEETINGMIND_FILE_EXTENSIONS is empty."""
     with subtests.test("empty_string"):
         settings = Settings(file_extensions="")
-        with pytest.raises(
-            ValueError, match="At least one file extension must be specified"
-        ):
+        with pytest.raises(ValueError, match="At least one file extension must be specified"):
             settings.get_watcher_config()
 
     with subtests.test("whitespace_only"):
         settings = Settings(file_extensions="   ")
-        with pytest.raises(
-            ValueError, match="At least one file extension must be specified"
-        ):
+        with pytest.raises(ValueError, match="At least one file extension must be specified"):
             settings.get_watcher_config()
 
     with subtests.test("only_commas"):
         settings = Settings(file_extensions=",,,")
-        with pytest.raises(
-            ValueError, match="At least one file extension must be specified"
-        ):
+        with pytest.raises(ValueError, match="At least one file extension must be specified"):
             settings.get_watcher_config()

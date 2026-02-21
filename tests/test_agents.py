@@ -1,14 +1,11 @@
 """Test agent orchestration using Pydantic AI testing tools."""
 
 import pytest
-from pydantic_ai import models
 from pydantic_ai.models.test import TestModel
 
 from meetingmind.agents import (
     action_points_agent,
-    analyze_transcript,
     key_insights_agent,
-    manager_agent,
     meeting_tone_agent,
     recap_agent,
     summary_agent,
@@ -73,9 +70,7 @@ async def test_action_points_agent_with_test_model(sample_transcript, subtests):
         ]
     )
 
-    with action_points_agent.override(
-        model=TestModel(custom_output_args=test_actions)
-    ):
+    with action_points_agent.override(model=TestModel(custom_output_args=test_actions)):
         result = await action_points_agent.run(sample_transcript)
 
         with subtests.test("returns_action_points"):
@@ -134,9 +129,7 @@ async def test_meeting_tone_agent_with_test_model(sample_transcript, subtests):
         notes="Team showed strong engagement",
     )
 
-    with meeting_tone_agent.override(
-        model=TestModel(custom_output_args=test_tone)
-    ):
+    with meeting_tone_agent.override(model=TestModel(custom_output_args=test_tone)):
         result = await meeting_tone_agent.run(sample_transcript)
 
         with subtests.test("returns_tone"):
@@ -155,9 +148,7 @@ async def test_key_insights_agent_with_test_model(sample_transcript, subtests):
         recommendations=["Maintain current collaboration approach"],
     )
 
-    with key_insights_agent.override(
-        model=TestModel(custom_output_args=test_insights)
-    ):
+    with key_insights_agent.override(model=TestModel(custom_output_args=test_insights)):
         result = await key_insights_agent.run(sample_transcript)
 
         with subtests.test("returns_insights"):

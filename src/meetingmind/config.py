@@ -72,7 +72,9 @@ class Settings(BaseSettings):
         """Convert settings to watcher config."""
         extensions = [ext.strip() for ext in self.file_extensions.split(",") if ext.strip()]
         if not extensions:
-            raise ValueError("At least one file extension must be specified in MEETINGMIND_FILE_EXTENSIONS")
+            raise ValueError(
+                "At least one file extension must be specified in MEETINGMIND_FILE_EXTENSIONS"
+            )
         return WatcherConfig(
             input_folder=self.input_folder,
             output_folder=self.output_folder,

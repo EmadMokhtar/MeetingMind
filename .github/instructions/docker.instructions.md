@@ -1,456 +1,577 @@
-# Docker and Docker Compose Instructions
+# Docker Development Instructions
 
-**Applies to:** `**/Dockerfile`, `**/docker-compose.yml`, `**/docker-compose.yaml`, `**/.dockerignore`
+**Applies to:** `**/Dockerfile*`, `**/.dockerignore`, `**/docker-compose*.yml`, `**/docker-compose*.yaml`
 
-## Project-Specific Patterns
+**Reference:** https://docs.docker.com/build/building/best-practices/
 
-**This project uses:**
-- ✅ **Artifactory registry**: `nn-docker-remote.artifactory.insim.biz` for all images
-- ✅ **Multi-stage uv build**: `builder → third-party-dependencies → workspace-dependencies → runtime`
-- ✅ **BuildKit secrets**: Artifactory credentials injected for each `uv sync` step
-- ✅ **Bytecode compilation**: `compileall` for third-party and workspace dependencies
-- ✅ **Runtime hardening**: Non-root user (`appuser`) in final image
+## Core Principles
 
-## Dockerfile Patterns
+1. **Minimal images** — only include what the running application needs
+2. **Multi-stage builds** — separate build-time from runtime dependencies
+3. **Layer cache efficiency** — order instructions from least to most frequently changed
+4. **Non-root user** — never run processes as root in production
+5. **Reproducible builds** — pin base image digests and lock dependency versions
+6. **uv as the installer** — use `uv sync --frozen --no-dev` in production stages
 
-### Multi-Stage Build with UV (Project Pattern)
+---
 
-```dockerfile
-FROM nn-docker-remote.artifactory.insim.biz/python:3.12-slim AS builder
-RUN apt-get update && apt-get install -y make && rm -rf /var/lib/apt/lists/*
-COPY --from=ghcr.artifactory.insim.biz/astral-sh/uv:latest /uv /uvx /bin/
+## Project Stack
 
-FROM builder AS third-party-dependencies
-WORKDIR /api
-COPY pyproject.toml uv.lock README.md ./
-RUN --mount=type=secret,id=artifactory_username \
-    --mount=type=secret,id=artifactory_password \
-    export UV_INDEX_ARTIFACTORY_USERNAME=$(cat /run/secrets/artifactory_username) && \
-    export UV_INDEX_ARTIFACTORY_PASSWORD=$(cat /run/secrets/artifactory_password) && \
-    uv sync --frozen --no-install-workspace
-RUN .venv/bin/python -m compileall -q /api/.venv/lib
+- **Python 3.11+** — use `python:3.11-slim` as runtime base
+- **uv** — package installer and virtual environment manager
+- **meetingmind** — CLI entrypoint: `uv run meetingmind`
+- **pyproject.toml + uv.lock** — locked dependency manifest
 
-FROM third-party-dependencies AS workspace-dependencies
-COPY ./src .
-RUN --mount=type=secret,id=artifactory_username \
-    --mount=type=secret,id=artifactory_password \
-    export UV_INDEX_ARTIFACTORY_USERNAME=$(cat /run/secrets/artifactory_username) && \
-    export UV_INDEX_ARTIFACTORY_PASSWORD=$(cat /run/secrets/artifactory_password) && \
-    uv sync --frozen --no-editable
-RUN .venv/bin/python -m compileall -q /api/.venv/lib/python3.12/site-packages/{{ cookiecutter.__api_name_with_team_name_slug }}
+---
 
-FROM nn-docker-remote.artifactory.insim.biz/python:3.12-slim AS runtime
-RUN groupadd -g 1000 appuser && \
-    useradd -r -u 1000 -g appuser appuser
-WORKDIR /api
-RUN chown -R appuser:appuser /api
-USER 1000:1000
-EXPOSE 8000
-ENV PYTHONDONTWRITEBYTECODE=1
-COPY --from=workspace-dependencies /api/.venv .venv
-CMD [".venv/bin/python", "-m", "{{ cookiecutter.__api_name_with_team_name_slug }}.main"]
-```
-
-### Key Dockerfile Principles
-
-- **Four-stage build**: Isolate tooling, third-party deps, workspace deps, and runtime image
-- **Artifactory registry**: Use `nn-docker-remote.artifactory.insim.biz` for base images
-- **Dependency layering**: Install third-party dependencies before copying workspace source
-- **Two `uv sync` phases**: `--no-install-workspace` first, then `--no-editable` after copying `src/`
-- **Bytecode optimization**: Compile dependencies with `python -m compileall`
-- **Non-root user**: Create with `groupadd`/`useradd`, switch with `USER 1000:1000`
-- **BuildKit secrets**: Use for build-time Artifactory credentials; never `ENV API_KEY=value`
-- **Slim runtime**: Start runtime from a fresh Python base image and copy only `.venv`
-- **Stable entrypoint**: Run app with `.venv/bin/python -m <package>.main`
-
-### Compose Command Override Pattern
-
-```yaml
-services:
-  app:
-    build:
-      context: .
-      secrets:
-        - artifactory_username
-        - artifactory_password
-
-  workers:
-    build:
-      context: .
-      secrets:
-        - artifactory_username
-        - artifactory_password
-    command: [".venv/bin/python", "-m", "your_package.workers.main"]  # Replace as needed
-```
-
-### User Creation Pattern
+## Canonical Multi-Stage Dockerfile
 
 ```dockerfile
-# Create non-root user and group explicitly
-RUN groupadd -g 1000 appuser && \
-    useradd -r -u 1000 -g appuser appuser
+# syntax=docker/dockerfile:1
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1: builder — install dependencies with uv
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
 
-# Set permissions before switching user
-RUN chown -R appuser:appuser /api
+# Install uv (official installer — pinned version for reproducibility)
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /usr/local/bin/
 
-# Switch to non-root user
-USER 1000:1000
+WORKDIR /app
+
+# Copy only the dependency manifests first (maximises cache reuse)
+COPY pyproject.toml uv.lock ./
+
+# Install production dependencies into a local .venv
+# --frozen  → fail if uv.lock is out of date (never silently update)
+# --no-dev  → skip dev/test dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2: runtime — slim production image
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+LABEL org.opencontainers.image.title="MeetingMind" \
+      org.opencontainers.image.description="Intelligent transcript processor with AI-powered insights" \
+      org.opencontainers.image.source="https://github.com/your-org/meetingmind" \
+      org.opencontainers.image.licenses="MIT"
+
+# Create a non-root user with an explicit UID/GID
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --no-log-init --no-create-home appuser
+
+WORKDIR /app
+
+# Copy the pre-built virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy application source (after deps — keep this layer last for fast rebuilds)
+COPY src/ ./src/
+COPY pyproject.toml ./
+
+# Make the venv's Python and scripts the default
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Switch to non-root user before running anything
+USER appuser
+
+# Document the port the app listens on (if serving HTTP)
+# EXPOSE 8000
+
+ENTRYPOINT ["meetingmind"]
+CMD ["watch"]
 ```
 
-### Health Check Pattern
+---
 
-**In Dockerfile:**
-```dockerfile
-# Healthcheck not defined in Dockerfile - defined in docker-compose for dev
+## .dockerignore
+
+Always create `.dockerignore` at the project root. It prevents unnecessary files from entering the build context, which speeds up builds and avoids leaking secrets.
+
 ```
-
-**In docker-compose (dev only):**
-```yaml
-services:
-  app:
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-```
-
-**Note**: Healthchecks in docker-compose override Dockerfile healthchecks. For this project, healthchecks are only in docker-compose.yml for local development.
-
-### .dockerignore Template
-
-```dockerignore
+# Version control
 .git
 .gitignore
+
+# Python artifacts
 __pycache__
-*.py[cod]
-.venv/
-*.egg-info/
-.pytest_cache/
-.coverage
-htmlcov/
-.vscode/
-.idea/
-.DS_Store
-*.md
-docs/
-.github/
-.env
-.env.local
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
 dist/
 build/
-*.log
-logs/
-tests/
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# Test / lint artifacts
+.pytest_cache
+.ruff_cache
+.mypy_cache
+htmlcov/
+.coverage
+coverage.xml
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files — NEVER copy secrets into the image
+.env
+.env.*
+!.env.example
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Docker files themselves (avoid redundant context)
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
 ```
 
-## Docker Compose Patterns (LOCAL DEVELOPMENT ONLY)
+---
 
-**IMPORTANT**: Docker Compose is for **local development only**. We do NOT use docker-compose in production. Production deployments use Kubernetes or managed container services.
+## Dockerfile Instructions Reference
 
-### Purpose
-- ✅ Local development environment setup
-- ✅ Running dependencies (DynamoDB, Redis, Jaeger)
-- ✅ Testing full stack locally
-- ❌ NOT for production deployments
-- ❌ NOT for staging environments
+### FROM
 
-### Key Compose Principles (Dev Only)
+- Use **official Docker images** or **Verified Publisher** images as bases.
+- Prefer the `slim` variant for runtime stages (`python:3.11-slim`).
+- Use `alpine` only when you are certain all native extensions compile correctly under musl libc.
+- **Pin to a digest** in production to guarantee reproducible builds:
 
-- **Health checks**: Define in Dockerfile; docker-compose healthcheck overrides it (use sparingly)
-- **Resource limits**: Set memory/CPU limits to prevent exhaustion
-- **Restart policies**: `always`, `unless-stopped`, `on-failure`
-- **Named volumes**: For persistence (postgres-data, redis-data)
-- **Bind mounts**: For dev with `:ro` flag when possible
-- **Logging**: Limit with max-size/max-file to prevent disk issues
-- **Secrets**: Use compose secrets for build-time Artifactory credentials only
-- **Networks**: Isolate services with custom networks
-- **Runtime secrets**: Use environment variables or secret management systems (Azure Key Vault, AWS Secrets Manager)
+```dockerfile
+# ✅ Digest-pinned (production)
+FROM python:3.11-slim@sha256:<digest> AS runtime
 
-### Complete Template (Based on Project)
+# ✅ Tag-pinned (CI/dev — acceptable with --pull on each build)
+FROM python:3.11-slim AS runtime
 
-```yaml
-secrets:
-  artifactory_username:
-    environment: UV_INDEX_ARTIFACTORY_USERNAME
-  artifactory_password:
-    environment: UV_INDEX_ARTIFACTORY_PASSWORD
-
-services:
-  app:
-    container_name: "sidiap_azure_devops_agent"
-    build:
-      context: .
-      secrets:
-        - artifactory_username
-        - artifactory_password
-    env_file: .env
-    environment:
-      DB_DYNAMODB_CONNECTION_STRING: dynamodb://us-east-1/local/local?endpoint=http://dynamodb-local:8000
-      UV_INDEX_ARTIFACTORY_USERNAME: ${UV_INDEX_ARTIFACTORY_USERNAME}
-      UV_INDEX_ARTIFACTORY_PASSWORD: ${UV_INDEX_ARTIFACTORY_PASSWORD}
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      OBSERVABILITY__OTLP_ENABLED: true
-      OBSERVABILITY__OTLP_ENDPOINT: http://jaeger:4317
-    ports:
-      - "8000:8000"
-    depends_on:
-      - dynamodb-local
-      - redis
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - demo-network
-
-  workers:
-    container_name: "sidiap_azure_devops_agent_workers"
-    build:
-      context: .
-      secrets:
-        - artifactory_username
-        - artifactory_password
-    env_file: .env
-    command: [".venv/bin/python", "-m", "your_package.workers.main"]  # Replace as needed
-    environment:
-      DB_DYNAMODB_CONNECTION_STRING: dynamodb://us-east-1/local/local?endpoint=http://dynamodb-local:8000
-      UV_INDEX_ARTIFACTORY_USERNAME: ${UV_INDEX_ARTIFACTORY_USERNAME}
-      UV_INDEX_ARTIFACTORY_PASSWORD: ${UV_INDEX_ARTIFACTORY_PASSWORD}
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      OBSERVABILITY__OTLP_ENABLED: true
-      OBSERVABILITY__OTLP_ENDPOINT: http://jaeger:4317
-    depends_on:
-      - dynamodb-local
-      - redis
-    networks:
-      - demo-network
-
-  dynamodb-local:
-    container_name: "sidiap_azure_devops_agent-dynamodb-local"
-    image: nn-docker-remote.artifactory.insim.biz/amazon/dynamodb-local:latest
-    command: -jar DynamoDBLocal.jar -sharedDb -dbPath ./data
-    user: root
-    ports:
-      - "8080:8000"
-    volumes:
-      - dynamodb-data:/home/dynamodblocal/data
-    networks:
-      - demo-network
-
-  redis:
-    container_name: sidiap_azure_devops_agent-redis
-    image: nn-docker-remote.artifactory.insim.biz/redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - demo-network
-
-  jaeger:
-    container_name: sidiap_azure_devops_agent-jaeger
-    image: nn-docker-remote.artifactory.insim.biz/jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "4317:4317"    # OTLP gRPC receiver
-      - "4318:4318"    # OTLP HTTP receiver
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    networks:
-      - demo-network
-
-networks:
-  demo-network:
-    driver: bridge
-
-volumes:
-  dynamodb-data:
-  redis-data:
+# ❌ Unpinned — "latest" is a footgun
+FROM python:latest AS runtime
 ```
 
-### Key Compose Patterns Explained
+### LABEL
 
-**1. Command Override Pattern:**
-- Build once from the same Dockerfile for all services
-- Use Compose `command` to override the default runtime module when needed
-- Keep build secrets in `build.secrets` for both app and workers
+Add OCI-compliant labels so images are discoverable and auditable:
 
-**2. Observability Setup:**
-- Jaeger for distributed tracing
-- OTLP endpoints for OpenTelemetry
-- Jaeger UI on port 16686
+```dockerfile
+LABEL org.opencontainers.image.title="MeetingMind" \
+      org.opencontainers.image.description="..." \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.source="https://github.com/org/repo" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.licenses="MIT"
+```
 
-**3. DynamoDB Local:**
-- Local AWS DynamoDB for development
-- Shared database mode with persistent volume
-- Port 8080 (host) → 8000 (container)
-
-**4. Secrets Management:**
-- Compose secrets for Artifactory (build-time only)
-- Environment variables for runtime configuration
-- Never commit secrets to version control
-
-**5. Service Dependencies:**
-- `depends_on` ensures startup order
-- Health checks ensure services are ready
-- Named networks isolate services
+Pass `GIT_SHA` and `BUILD_DATE` as build args from CI:
 
 ```bash
-# Usage (LOCAL DEVELOPMENT ONLY)
-docker compose up --build -d
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker build \
+  --build-arg GIT_SHA=$(git rev-parse --short HEAD) \
+  --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -t meetingmind:latest .
 ```
 
-## Essential Commands (Local Development)
+### RUN
 
-```bash
-# Build and start local environment
-docker compose up --build -d
+- **Chain related commands** in a single `RUN` to avoid extra layers.
+- Always combine `apt-get update` and `apt-get install` in the same `RUN`.
+- Clean the apt cache in the same layer to keep image size small.
+- Sort package names alphabetically for readability and diff hygiene.
+- Use `--no-install-recommends` to minimise installed packages.
 
-# View logs (follow)
-docker compose logs -f app
-
-# Scale workers for local testing
-docker compose up --scale worker=3 -d
-
-# Execute command in container
-docker compose exec app bash
-docker compose exec app uv run pytest
-
-# Stop and remove
-docker compose down
-docker compose down -v  # Include volumes
-
-# Restart service
-docker compose restart app
-
-# View resource usage
-docker compose stats
-
-# Validate compose file
-docker compose config
-
-# Build with secrets
-docker compose build --secret id=token,env=TOKEN
-```
-
-## Dockerfile Quick Reference
-
-### Image Tags
 ```dockerfile
-# ✅ Good
-FROM python:3.12-slim
-FROM postgres:16-alpine
-FROM redis:7-alpine
+# ✅ Correct apt-get pattern
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+    && rm -rf /var/lib/apt/lists/*
 
-# ❌ Bad
-FROM python:latest
-FROM postgres
+# ❌ Broken — apt-get update alone is cached separately
+RUN apt-get update
+RUN apt-get install -y curl
 ```
 
-### Layer Optimization
+- Use `set -o pipefail` when piping commands so failures propagate:
+
 ```dockerfile
-# ✅ Good - dependencies cached separately
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN curl -fsSL https://example.com/script | bash
+```
+
+- Use `--mount=type=cache` for package manager caches (BuildKit):
+
+```dockerfile
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+```
+
+### COPY vs ADD
+
+| Instruction | When to use |
+|---|---|
+| `COPY` | Copying local files/directories into the image — **prefer this** |
+| `ADD` | Downloading remote artifacts (HTTP/HTTPS) or auto-extracting tarballs |
+
+```dockerfile
+# ✅ Prefer COPY for local files
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen
-COPY . /app
+COPY src/ ./src/
 
-# ❌ Bad - cache invalidated on every code change
-COPY . /app
-RUN uv sync
+# ✅ Use --from to copy from another stage
+COPY --from=builder /app/.venv /app/.venv
+
+# ✅ ADD for remote artifacts with checksum
+ADD --checksum=sha256:<hash> https://example.com/archive.tar.gz /tmp/archive.tar.gz
+
+# ❌ Don't use ADD just to copy local files
+ADD . /app
 ```
 
-### Security
+- Use bind mounts for build-time-only files to avoid polluting the final image:
+
 ```dockerfile
-# ✅ Good - BuildKit secrets
-RUN --mount=type=secret,id=token \
-    export TOKEN=$(cat /run/secrets/token) && \
-    uv sync
-
-# ❌ Bad - hardcoded
-ENV TOKEN=secret123
-RUN uv sync
+RUN --mount=type=bind,source=pyproject.toml,target=/tmp/pyproject.toml \
+    pip install -r /tmp/requirements.txt
 ```
 
-## Docker Compose Quick Reference
+### ENV
 
-### Service Dependencies
-```yaml
-services:
-  app:
-    depends_on:
-      postgres:
-        condition: service_healthy  # Wait for health check
-      redis:
-        condition: service_started  # Wait for start only
+- Use `ENV` for runtime configuration, not for secrets.
+- Group related env vars on one line; each `ENV` creates a layer.
+
+```dockerfile
+# ✅ Group related settings
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+# ✅ Version pinning via ARG (build-time only, not persisted)
+ARG PYTHON_VERSION=3.11
 ```
 
-### Volume Patterns
-```yaml
-volumes:
-  # Named volume (persisted)
-  - postgres-data:/var/lib/postgresql/data
+- **Never put secrets in `ENV`** — they are visible in `docker inspect` and image layers.
+  Use Docker secrets, Vault, or environment injection at runtime instead.
 
-  # Bind mount read-only (dev)
-  - ./src:/app/src:ro
+### ARG
 
-  # Bind mount read-write
-  - ./logs:/app/logs
+Use `ARG` for build-time variables that must NOT persist in the runtime image (e.g., registry credentials):
+
+```dockerfile
+ARG ARTIFACTORY_TOKEN
+RUN --mount=type=secret,id=pip_token \
+    pip install --extra-index-url "https://token:$(cat /run/secrets/pip_token)@artifactory.example.com/pypi/simple" mypackage
 ```
 
-### Environment Variables
-```yaml
-services:
-  app:
-    env_file: .env           # Load from file
-    environment:
-      DB_HOST: postgres      # Explicit value
-      LOG_LEVEL: ${LOG_LEVEL:-info}  # With default
+### ENTRYPOINT and CMD
+
+- `ENTRYPOINT` — the fixed executable (the container's "command").
+- `CMD` — default arguments to `ENTRYPOINT`; easily overridden at `docker run`.
+- Always use **exec form** (`["executable", "arg"]`), not shell form, so the process receives signals directly.
+
+```dockerfile
+# ✅ Exec form — PID 1 receives SIGTERM cleanly
+ENTRYPOINT ["meetingmind"]
+CMD ["watch"]
+
+# ✅ Override at runtime
+# docker run meetingmind:latest process --input /data/transcript.txt
+
+# ❌ Shell form — wraps in /bin/sh -c, signals are not forwarded
+ENTRYPOINT meetingmind watch
 ```
 
-### Network Isolation
-```yaml
-services:
-  app:
-    networks:
-      - frontend
-      - backend
+For services, use a shell entrypoint script when startup logic is needed:
 
-  postgres:
-    networks:
-      - backend  # Not exposed to frontend
-
-networks:
-  frontend:
-    driver: bridge
-  backend:
-    driver: bridge
-    internal: true  # No external access
+```dockerfile
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["meetingmind", "watch"]
 ```
 
-## Security Checklist
+The script must use `exec "$@"` as its last line so the process becomes PID 1:
 
-- ✅ **Build-time secrets**: Use BuildKit secrets for Artifactory credentials during `uv sync`
-- ✅ **Runtime secrets**: Load from environment or secret managers (Azure Key Vault); never hardcode
-- ✅ **Environment variables**: For non-sensitive config only; sensitive data needs proper secret management
-- ✅ Run as non-root user (USER 1000)
-- ✅ Use specific image tags (not :latest)
-- ✅ Use official images from trusted registries (or internal Artifactory)
-- ✅ Scan images: `docker scan myapp:latest`
-- ✅ Use minimal base images (alpine, slim)
-- ✅ Multi-stage builds to reduce attack surface
-- ✅ Clean up caches in same layer
-- ✅ Limit container capabilities with cap_drop/cap_add
-- ✅ Keep images updated regularly
+```bash
+#!/bin/bash
+set -e
+# pre-flight checks, env validation, etc.
+exec "$@"
+```
+
+### EXPOSE
+
+Document the ports your container listens on. This is metadata only — actual port mapping happens at `docker run -p`.
+
+```dockerfile
+# FastAPI / uvicorn
+EXPOSE 8000
+
+# Prometheus metrics
+EXPOSE 9090
+```
+
+### USER
+
+Never run production containers as root. Create a dedicated user in the **builder** stage and reuse it in the runtime stage.
+
+```dockerfile
+# ✅ Explicit UID/GID — deterministic across rebuilds
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --no-log-init --no-create-home appuser
+
+USER appuser
+```
+
+- Use `--no-log-init` to avoid the disk-exhaustion bug with large UIDs.
+- Do not install `sudo`; use `gosu` if privilege escalation is truly needed.
+- Switch to the non-root user **after** all `RUN` install commands.
+
+### WORKDIR
+
+Always use absolute paths. Never use `RUN cd /some/path && ...`.
+
+```dockerfile
+WORKDIR /app
+```
+
+### VOLUME
+
+Declare volumes for mutable data that must survive container restarts:
+
+```dockerfile
+# Processed transcripts output directory
+VOLUME ["/app/output"]
+
+# SQLite or local state
+VOLUME ["/app/data"]
+```
+
+---
+
+## Multi-Stage Build Patterns
+
+### Pattern 1: Builder + Runtime (standard)
+
+```dockerfile
+FROM python:3.11-slim AS builder
+# ... install deps with uv ...
+
+FROM python:3.11-slim AS runtime
+COPY --from=builder /app/.venv /app/.venv
+```
+
+### Pattern 2: Test Stage
+
+Add a `test` stage so CI can run tests inside Docker without polluting the runtime image:
+
+```dockerfile
+FROM builder AS test
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen          # include dev deps for testing
+COPY tests/ ./tests/
+RUN uv run pytest tests/ -v
+```
+
+### Pattern 3: Shared Base
+
+```dockerfile
+FROM python:3.11-slim AS base
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --no-log-init --no-create-home appuser
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /usr/local/bin/
+WORKDIR /app
+
+FROM base AS builder
+# ...
+
+FROM base AS runtime
+# ...
+```
+
+---
+
+## uv-Specific Docker Patterns
+
+### Installing uv
+
+Use the official uv Docker image to copy the binary:
+
+```dockerfile
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /usr/local/bin/
+```
+
+Pin the uv version for reproducible builds (replace `0.5` with the exact version).
+
+### Dependency Installation (Production)
+
+```dockerfile
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+```
+
+- `--frozen` — error if `uv.lock` doesn't match `pyproject.toml` (never silently regenerate)
+- `--no-dev` — exclude `[project.optional-dependencies].dev`
+- `--mount=type=cache` — reuse the uv download cache across builds (BuildKit)
+
+### Dependency Installation (CI with Tests)
+
+```dockerfile
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen
+```
+
+Omit `--no-dev` to include test/lint tools.
+
+### Running the Application
+
+```dockerfile
+ENV PATH="/app/.venv/bin:$PATH"
+
+ENTRYPOINT ["meetingmind"]
+CMD ["watch"]
+```
+
+Because the `.venv` is on `PATH`, there is no need for `uv run` at runtime.
+
+---
+
+## Build Commands
+
+```bash
+# Standard build
+docker build -t meetingmind:latest .
+
+# Always pull fresh base image + no layer cache (for nightly/release builds)
+docker build --pull --no-cache -t meetingmind:latest .
+
+# Target a specific stage (e.g., run tests only)
+docker build --target test -t meetingmind:test .
+
+# Pass build args for labels
+docker build \
+  --build-arg GIT_SHA=$(git rev-parse --short HEAD) \
+  --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -t meetingmind:$(git rev-parse --short HEAD) \
+  -t meetingmind:latest \
+  .
+
+# BuildKit (enabled by default in Docker 23+, set explicitly for older versions)
+DOCKER_BUILDKIT=1 docker build .
+```
+
+---
+
+## Build Cache Strategy
+
+Order `Dockerfile` instructions from **least frequently changed** to **most frequently changed**:
+
+```
+1. Base image (FROM)              ← changes rarely
+2. System packages (RUN apt-get)  ← changes rarely
+3. uv binary (COPY --from=uv)     ← changes on uv upgrades
+4. pyproject.toml + uv.lock       ← changes on dependency updates
+5. uv sync (RUN)                  ← invalidated when step 4 changes
+6. Application source (COPY src/) ← changes on every commit  ← keep LAST
+```
+
+```dockerfile
+# ✅ Cache-optimised order
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+COPY src/ ./src/       # only this layer busts on code changes
+```
+
+---
+
+## Security Best Practices
+
+| Practice | Implementation |
+|---|---|
+| Non-root user | `USER appuser` (UID 1001) |
+| No secrets in image | Use Docker secrets or runtime env injection |
+| Minimal attack surface | `--no-install-recommends`, slim base |
+| Pinned base image | `FROM python:3.11-slim@sha256:<digest>` |
+| Read-only filesystem | `docker run --read-only --tmpfs /tmp` |
+| No new privileges | `docker run --security-opt=no-new-privileges` |
+| Vulnerability scanning | `docker scout cves meetingmind:latest` |
+| Supply chain integrity | Lock uv version; verify uv binary checksum |
+
+### Secrets at Build Time (Artifactory / private registries)
+
+```dockerfile
+# ✅ Use BuildKit secrets — never bake tokens into the image
+RUN --mount=type=secret,id=artifactory_token \
+    pip install \
+      --index-url "https://token:$(cat /run/secrets/artifactory_token)@artifactory.example.com/pypi/simple" \
+      mypackage
+
+# Build command
+docker build \
+  --secret id=artifactory_token,src=$HOME/.artifactory_token \
+  .
+```
+
+With uv and a private index:
+
+```dockerfile
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=secret,id=artifactory_token \
+    UV_INDEX_URL="https://token:$(cat /run/secrets/artifactory_token)@artifactory.example.com/pypi/simple" \
+    uv sync --frozen --no-dev
+```
+
+---
+
+## Environment Variables Reference
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `PYTHONDONTWRITEBYTECODE` | Prevent `.pyc` files | `1` |
+| `PYTHONUNBUFFERED` | Flush stdout/stderr immediately | `1` |
+| `PATH` | Include `.venv/bin` on path | `/app/.venv/bin:$PATH` |
+| `UV_NO_PROGRESS` | Quieter uv output in CI | `1` |
+| `UV_COMPILE_BYTECODE` | Pre-compile `.pyc` at install time | `1` (optional) |
+
+---
+
+## Quick Reference: Rules
+
+- ✅ Use multi-stage builds — always separate builder from runtime
+- ✅ Use `uv sync --frozen --no-dev` in production
+- ✅ Use `--mount=type=cache` for uv's download cache
+- ✅ Copy `pyproject.toml` + `uv.lock` before `src/` for cache efficiency
+- ✅ Run as a non-root user (`USER appuser` with UID 1001)
+- ✅ Use exec-form `ENTRYPOINT ["meetingmind"]` not shell form
+- ✅ Always have a `.dockerignore` that excludes `.env`, `.git`, `__pycache__`
+- ✅ Use `LABEL` with OCI-standard keys
+- ✅ Combine `apt-get update && apt-get install` in one `RUN`
+- ✅ Pin uv version in `COPY --from=ghcr.io/astral-sh/uv:<version>`
+- ❌ Never use `FROM python:latest`
+- ❌ Never `COPY . .` before installing dependencies (breaks layer cache)
+- ❌ Never store secrets in `ENV`, `ARG`, or `COPY`
+- ❌ Never run the app as root
+- ❌ Never use shell-form `ENTRYPOINT` for production images
+- ❌ Never omit `.dockerignore`

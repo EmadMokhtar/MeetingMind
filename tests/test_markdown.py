@@ -3,8 +3,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from meetingmind.markdown import generate_markdown, generate_output_filename
 from meetingmind.models import (
     ActionPoint,

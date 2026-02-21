@@ -1,6 +1,5 @@
 """Test watcher functionality."""
 
-import asyncio
 import tempfile
 from pathlib import Path
 

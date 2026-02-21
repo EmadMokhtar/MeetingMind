@@ -1,9 +1,7 @@
 """Test package imports and version."""
 
-import pytest
 
-
-def test_package_import():
+def test_package_import(subtests):
     """Test that the package can be imported."""
     import meetingmind
 
@@ -15,7 +13,7 @@ def test_package_import():
         assert "." in meetingmind.__version__
 
 
-def test_module_imports():
+def test_module_imports(subtests):
     """Test that all main modules can be imported."""
     modules = [
         "meetingmind.config",

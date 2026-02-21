@@ -50,13 +50,13 @@ def watch(
     settings = load_settings()
 
     # Override with CLI options
-    if input_folder:
+    if input_folder is not None:
         settings.input_folder = input_folder
-    if output_folder:
+    if output_folder is not None:
         settings.output_folder = output_folder
-    if poll_interval:
+    if poll_interval is not None:
         settings.poll_interval_seconds = poll_interval
-    if max_concurrent:
+    if max_concurrent is not None:
         settings.max_concurrent_files = max_concurrent
 
     # Create watcher
@@ -98,11 +98,11 @@ def process(
     settings = load_settings()
 
     # Override with CLI options
-    if input_folder:
+    if input_folder is not None:
         settings.input_folder = input_folder
-    if output_folder:
+    if output_folder is not None:
         settings.output_folder = output_folder
-    if max_concurrent:
+    if max_concurrent is not None:
         settings.max_concurrent_files = max_concurrent
 
     # Create watcher

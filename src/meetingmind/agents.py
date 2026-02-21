@@ -1,6 +1,6 @@
 """Pydantic AI agents for transcript analysis."""
 
-import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,11 +18,30 @@ from meetingmind.models import (
 )
 
 
+def _get_model_string() -> str:
+    """Get the model string from settings lazily."""
+    from meetingmind.config import Settings
+
+    settings = Settings()
+
+    # Set API key if configured and not already in environment
+    if settings.api_key:
+        provider_env_var = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+        }.get(settings.model_provider)
+
+        if provider_env_var and not os.environ.get(provider_env_var):
+            os.environ[provider_env_var] = settings.get_api_key()
+
+    return f"{settings.model_provider}:{settings.model_name}"
+
+
 class _LazyAgent:
     """Proxy that lazily initializes an Agent on first access."""
 
-    def __init__(self, model: str, register_tools_callback=None, **agent_kwargs):
-        self._model = model
+    def __init__(self, model_factory=None, register_tools_callback=None, **agent_kwargs):
+        self._model_factory = model_factory  # Callable that returns model string
         self._agent_kwargs = agent_kwargs
         self._agent = None
         self._register_tools_callback = register_tools_callback
@@ -31,19 +50,22 @@ class _LazyAgent:
     @property
     def result_type(self):
         """Get the configured result type for this agent."""
-        return self._agent_kwargs.get('result_type')
+        return self._agent_kwargs.get("result_type")
 
     def _get_agent(self) -> Agent:
         """Get or create the underlying agent."""
         if self._agent is None:
+            # Get model string from factory
+            model = self._model_factory() if self._model_factory else "openai:gpt-4"
+
             # Map our simplified parameter names to pydantic-ai's Agent parameters
             agent_kwargs = {}
-            if 'result_type' in self._agent_kwargs:
-                agent_kwargs['output_type'] = self._agent_kwargs['result_type']
-            if 'system_prompt' in self._agent_kwargs:
-                agent_kwargs['system_prompt'] = self._agent_kwargs['system_prompt']
-            
-            self._agent = Agent(self._model, **agent_kwargs)
+            if "result_type" in self._agent_kwargs:
+                agent_kwargs["output_type"] = self._agent_kwargs["result_type"]
+            if "system_prompt" in self._agent_kwargs:
+                agent_kwargs["system_prompt"] = self._agent_kwargs["system_prompt"]
+
+            self._agent = Agent(model, **agent_kwargs)
             # Register tools if callback provided
             if self._register_tools_callback and not self._tools_registered:
                 self._register_tools_callback(self._agent)
@@ -53,7 +75,7 @@ class _LazyAgent:
     def override(self, model=None, **kwargs):
         """
         Override configuration without initializing the original agent.
-        
+
         For testing, we can override with a TestModel directly without needing
         to initialize the original Agent that requires API keys.
         """
@@ -61,11 +83,11 @@ class _LazyAgent:
             # Create a new temporary agent with the override model
             # Use the same configuration as the original agent
             temp_kwargs = {}
-            if 'result_type' in self._agent_kwargs:
-                temp_kwargs['output_type'] = self._agent_kwargs['result_type']
-            if 'system_prompt' in self._agent_kwargs:
-                temp_kwargs['system_prompt'] = self._agent_kwargs['system_prompt']
-            
+            if "result_type" in self._agent_kwargs:
+                temp_kwargs["output_type"] = self._agent_kwargs["result_type"]
+            if "system_prompt" in self._agent_kwargs:
+                temp_kwargs["system_prompt"] = self._agent_kwargs["system_prompt"]
+
             temp_agent = Agent(model, **temp_kwargs)
             # Register tools if needed
             if self._register_tools_callback:
@@ -88,12 +110,12 @@ class _LazyAgent:
 
 class _OverrideContext:
     """Context manager that temporarily replaces the agent in a LazyAgent."""
-    
-    def __init__(self, lazy_agent: '_LazyAgent', override_agent: Agent):
+
+    def __init__(self, lazy_agent: "_LazyAgent", override_agent: Agent):
         self._lazy_agent = lazy_agent
         self._override_agent = override_agent
         self._original_agent = None
-    
+
     def __enter__(self):
         # Save the original agent (which might be None)
         self._original_agent = self._lazy_agent._agent
@@ -101,7 +123,7 @@ class _OverrideContext:
         self._lazy_agent._agent = self._override_agent
         self._lazy_agent._tools_registered = True  # Tools already registered on override agent
         return self._override_agent
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Restore the original agent
         self._lazy_agent._agent = self._original_agent
@@ -112,7 +134,7 @@ class _OverrideContext:
 
 # Worker agents - each specialized in extracting specific information
 summary_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=Summary,
     system_prompt=(
         "You are an expert at summarizing meeting transcripts. "
@@ -122,7 +144,7 @@ summary_agent = _LazyAgent(
 )
 
 action_points_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=ActionPoints,
     system_prompt=(
         "You are an expert at identifying action items from meeting transcripts. "
@@ -132,7 +154,7 @@ action_points_agent = _LazyAgent(
 )
 
 todo_list_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=TodoList,
     system_prompt=(
         "You are an expert at extracting todo items from meeting transcripts. "
@@ -141,7 +163,7 @@ todo_list_agent = _LazyAgent(
 )
 
 important_mentions_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=ImportantMentions,
     system_prompt=(
         "You are an expert at identifying important mentions in meeting transcripts. "
@@ -151,7 +173,7 @@ important_mentions_agent = _LazyAgent(
 )
 
 recap_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=Recap,
     system_prompt=(
         "You are an expert at creating meeting recaps. "
@@ -161,7 +183,7 @@ recap_agent = _LazyAgent(
 )
 
 meeting_tone_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=MeetingTone,
     system_prompt=(
         "You are an expert at analyzing meeting tone and dynamics. "
@@ -171,7 +193,7 @@ meeting_tone_agent = _LazyAgent(
 )
 
 key_insights_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=KeyInsights,
     system_prompt=(
         "You are an expert at extracting strategic insights from meetings. "
@@ -238,7 +260,7 @@ def _register_manager_tools(agent: Agent) -> None:
 
 # Manager agent - orchestrates workers and aggregates results
 manager_agent = _LazyAgent(
-    "openai:gpt-4",
+    model_factory=_get_model_string,
     result_type=TranscriptAnalysis,
     system_prompt=(
         "You are a manager agent that orchestrates analysis of meeting transcripts. "

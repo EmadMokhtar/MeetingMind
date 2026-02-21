@@ -67,6 +67,7 @@ class TranscriptWatcher:
 
     async def _process_file(self, file_path: Path) -> None:
         """Process a single transcript file."""
+        assert self._semaphore is not None, "_semaphore must be initialized before processing"
         async with self._semaphore:
             try:
                 print(f"Processing: {file_path.name}")
@@ -95,9 +96,7 @@ class TranscriptWatcher:
                 self.config.output_folder.mkdir(parents=True, exist_ok=True)
 
                 # Write output
-                await asyncio.to_thread(
-                    output_path.write_text, markdown_content, encoding="utf-8"
-                )
+                await asyncio.to_thread(output_path.write_text, markdown_content, encoding="utf-8")
 
                 # Mark as processed
                 self.state_store.mark_processed(file_path, output_path)
@@ -132,7 +131,7 @@ class TranscriptWatcher:
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent_files)
         self._setup_signal_handlers()
 
-        print(f"Starting MeetingMind watcher")
+        print("Starting MeetingMind watcher")
         print(f"  Input folder: {self.config.input_folder.resolve()}")
         print(f"  Output folder: {self.config.output_folder.resolve()}")
         print(f"  Extensions: {', '.join(self.config.file_extensions)}")
@@ -188,8 +187,22 @@ class TranscriptWatcher:
             print("No new files to process")
             return 0
 
-        await self._process_batch(eligible_files)
-        return len(eligible_files)
+        print(f"Found {len(eligible_files)} new file(s) to process")
+
+        tasks = [self._process_file(file_path) for file_path in eligible_files]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Count successfully processed files
+        success_count = sum(1 for r in results if not isinstance(r, Exception))
+
+        # Report any errors
+        errors = [(eligible_files[i], r) for i, r in enumerate(results) if isinstance(r, Exception)]
+        if errors:
+            print(f"Completed batch with {len(errors)} error(s):")
+            for file_path, error in errors:
+                print(f"  - {file_path.name}: {error}")
+
+        return success_count
 
     async def process_single_file(self, file_path: Path) -> None:
         """
@@ -209,8 +222,7 @@ class TranscriptWatcher:
             raise ValueError(f"Path is not a file: {file_path}")
 
         expected_extensions = [
-            ext if ext.startswith(".") else f".{ext}"
-            for ext in self.config.file_extensions
+            ext if ext.startswith(".") else f".{ext}" for ext in self.config.file_extensions
         ]
         if file_path.suffix not in expected_extensions:
             raise ValueError(

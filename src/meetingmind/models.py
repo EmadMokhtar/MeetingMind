@@ -61,9 +61,7 @@ class Recap(BaseModel):
     highlights: list[str] = Field(
         default_factory=list, description="Key highlights from the meeting"
     )
-    decisions_made: list[str] = Field(
-        default_factory=list, description="Decisions that were made"
-    )
+    decisions_made: list[str] = Field(default_factory=list, description="Decisions that were made")
     next_steps: list[str] = Field(default_factory=list, description="Next steps to take")
 
 
