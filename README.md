@@ -67,6 +67,166 @@ Clear all processing history:
 meetingmind reset
 ```
 
+## 🐳 Docker
+
+MeetingMind provides a production-ready Docker image with multi-stage builds for optimal size and security.
+
+### Build
+
+Basic build:
+
+```bash
+docker build -t meetingmind:latest .
+```
+
+Build with metadata (recommended for CI/CD):
+
+```bash
+docker build \
+  --build-arg GIT_SHA=$(git rev-parse --short HEAD) \
+  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  -t meetingmind:latest .
+```
+
+### Run: Watch Mode (Continuous Monitoring)
+
+The primary use case — continuously monitor a folder and process new transcripts:
+
+```bash
+docker run -d \
+  --name meetingmind-watcher \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  -e MEETINGMIND_API_KEY=your-api-key-here \
+  meetingmind:latest
+```
+
+**What this does:**
+- Runs in detached mode (`-d`)
+- Mounts local `./transcripts` folder (input files)
+- Mounts local `./outputs` folder (generated analyses)
+- Injects your API key at runtime (never baked into image)
+- Starts `meetingmind watch` by default
+
+View logs:
+```bash
+docker logs -f meetingmind-watcher
+```
+
+Stop the watcher:
+```bash
+docker stop meetingmind-watcher
+```
+
+### Run: One-Time Process
+
+Process a single file and exit:
+
+```bash
+docker run --rm \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  -e MEETINGMIND_API_KEY=your-api-key-here \
+  meetingmind:latest \
+  process --input /app/transcripts/meeting.txt
+```
+
+Process all unprocessed files once:
+
+```bash
+docker run --rm \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  -e MEETINGMIND_API_KEY=your-api-key-here \
+  meetingmind:latest \
+  process --input-folder /app/transcripts
+```
+
+### Run: Other Commands
+
+Check processing status:
+
+```bash
+docker run --rm \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  meetingmind:latest \
+  status
+```
+
+Reset processing state:
+
+```bash
+docker run --rm \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  meetingmind:latest \
+  reset
+```
+
+### Configuration via Environment Variables
+
+Pass any configuration using `-e` flags:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MEETINGMIND_INPUT_FOLDER` | `./transcripts` | Input folder for transcript files |
+| `MEETINGMIND_OUTPUT_FOLDER` | `./outputs` | Output folder for generated analyses |
+| `MEETINGMIND_FILE_EXTENSIONS` | `.txt,.md` | Comma-separated file extensions to monitor |
+| `MEETINGMIND_MAX_CONCURRENT_FILES` | `3` | Max files to process concurrently (1-10) |
+| `MEETINGMIND_POLL_INTERVAL_SECONDS` | `5.0` | How often to check for new files (seconds) |
+| `MEETINGMIND_STABILITY_CHECK_SECONDS` | `2.0` | Wait time to ensure file is fully written |
+| `MEETINGMIND_FILENAME_TEMPLATE` | `{source_stem}_{timestamp}.md` | Output filename pattern |
+| `MEETINGMIND_STATE_FILE` | `.meetingmind_state.json` | State file location |
+| `MEETINGMIND_MODEL_PROVIDER` | `openai` | AI provider (`openai`, `anthropic`, or `test`) |
+| `MEETINGMIND_MODEL_NAME` | `gpt-4` | Model to use for analysis |
+| `MEETINGMIND_API_KEY` | *(required)* | Your AI provider API key |
+
+Example with custom configuration:
+
+```bash
+docker run -d \
+  --name meetingmind-watcher \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  -e MEETINGMIND_API_KEY=your-api-key-here \
+  -e MEETINGMIND_MODEL_PROVIDER=anthropic \
+  -e MEETINGMIND_MODEL_NAME=claude-3-opus-20240229 \
+  -e MEETINGMIND_MAX_CONCURRENT_FILES=5 \
+  -e MEETINGMIND_POLL_INTERVAL_SECONDS=10.0 \
+  meetingmind:latest
+```
+
+### Using an `.env` File
+
+For cleaner commands, use an `.env` file:
+
+Create `.env`:
+```bash
+MEETINGMIND_API_KEY=your-api-key-here
+MEETINGMIND_MODEL_PROVIDER=openai
+MEETINGMIND_MODEL_NAME=gpt-4
+MEETINGMIND_MAX_CONCURRENT_FILES=5
+```
+
+Run with `--env-file`:
+```bash
+docker run -d \
+  --name meetingmind-watcher \
+  -v $(pwd)/transcripts:/app/transcripts \
+  -v $(pwd)/outputs:/app/output \
+  --env-file .env \
+  meetingmind:latest
+```
+
+### Docker Notes
+
+- **Volume mounts are required** - The container needs access to your transcript files and somewhere to write output
+- **API keys at runtime only** - Never baked into the image for security
+- **Non-root user** - Runs as UID 1001 for enhanced security
+- **State persistence** - The `.meetingmind_state.json` file is stored in the mounted `/app/transcripts` directory
+- **Graceful shutdown** - Container handles `SIGTERM` cleanly, allowing in-progress files to complete
+
 ## Configuration
 
 Configure via environment variables or `.env` file:
