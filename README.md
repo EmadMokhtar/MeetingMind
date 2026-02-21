@@ -12,6 +12,13 @@ Intelligent transcript processor with AI-powered insights using manager-worker a
 - 🎨 **Beautiful markdown output** - Generates well-formatted analysis documents
 - ⚙️ **Configurable** - Customizable paths, templates, and processing settings
 
+## Documentation
+
+| Document | Audience | Description |
+|----------|----------|-------------|
+| [User Manual](docs/user-manual.md) | End users | Getting started, configuration, workflows, troubleshooting, FAQ |
+| [Technical Reference](docs/technical-reference.md) | Developers | Architecture, data models, agent system, API reference, development guide |
+
 ## Installation
 
 ```bash
