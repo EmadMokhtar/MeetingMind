@@ -59,6 +59,7 @@ tests/
   agents/          # custom Copilot agents (*.agent.md)
   instructions/    # scoped instruction files (*.instructions.md)
   prompts/         # reusable prompt files (*.prompt.md)
+  skills/          # module skill files (<module>.skill.md)
 .env               # API keys (never committed)
 pyproject.toml     # Ruff, mypy, pytest config
 Makefile           # make test, make lint, make run
@@ -81,6 +82,7 @@ Makefile           # make test, make lint, make run
 | Pytest standards, subtests, fixtures, make test | `.github/instructions/pytest.instructions.md` |
 | Conventional commits, scopes, breaking changes | `.github/instructions/commit.instructions.md` |
 | Docker multi-stage builds, uv, Artifactory | `.github/instructions/docker.instructions.md` |
+| Module skills (capabilities, APIs, usage) | `.github/instructions/skills.instructions.md` |
 
 ## Custom Agents
 
@@ -120,6 +122,27 @@ Pre-built prompts in `.github/prompts/` for common tasks:
 | `ai-prompt-engineering-safety-review.prompt.md` | Review AI prompts for safety and quality |
 
 See `.github/prompts/README.md` for usage examples and workflows.
+
+## Module Skills
+
+Every source module has a companion skill file in `.github/skills/`:
+
+| Module | Skill File |
+|--------|-----------|
+| `agents.py` | `.github/skills/agents.skill.md` |
+| `config.py` | `.github/skills/config.skill.md` |
+| `main.py` | `.github/skills/main.skill.md` |
+| `markdown.py` | `.github/skills/markdown.skill.md` |
+| `models.py` | `.github/skills/models.skill.md` |
+| `state.py` | `.github/skills/state.skill.md` |
+| `watcher.py` | `.github/skills/watcher.skill.md` |
+
+### Rules for all agents
+
+- **Before modifying a module** — read its skill file to understand the current API and design decisions
+- **After modifying a module** — flag that the skill file needs updating (engineers flag; technical writer updates)
+- **New modules** — create a skill file before or immediately after the module is merged
+- **Skill file format** — follow `.github/instructions/skills.instructions.md`
 
 ## Core Imports
 
