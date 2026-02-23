@@ -18,6 +18,7 @@ Provides configuration management for MeetingMind using Pydantic Settings. Loads
 ## Key Symbols
 | Symbol | Type | Description |
 |--------|------|-------------|
+| `ModelProvider` | enum | Enum for supported AI model providers (OPENAI, ANTHROPIC, TEST) |
 | `WatcherConfig` | class | Structured configuration for the file watcher component |
 | `Settings` | class | Main application settings loaded from environment and .env file |
 | `load_settings` | function | Factory function to load application settings |
@@ -77,11 +78,13 @@ print(settings.output_folder)
 - **File extensions:** The `file_extensions` setting is a comma-separated string (e.g., ".txt,.md") that gets parsed by `get_watcher_config()`
 - **Path types:** Input/output folders and state file use Path objects for cross-platform compatibility
 - **Validation:** Pydantic validates types and constraints (e.g., poll_interval_seconds must be >= 1.0)
-- **Model providers:** Supports "openai", "anthropic", or "test" as valid provider values
+- **Model providers:** Uses ModelProvider enum (OPENAI, ANTHROPIC, TEST) instead of string literals
+- **Extra fields allowed:** SettingsConfigDict includes `extra="allow"` to permit unknown environment variables without raising validation errors
 - **Defaults:** All settings have sensible defaults for quick local development
 - **Singleton pattern:** The module-level `settings` variable provides convenient access but can cause issues in tests; use `load_settings()` for fresh instances
 
 ## Changelog
 | Date | Change |
 |------|--------|
+| 2025-01-17 | Added ModelProvider enum to replace Literal type; added extra="allow" to SettingsConfigDict; changed default filename_template to "{meeting_timestamp}_{source_stem}.md" |
 | 2026-02-22 | Initial skill created |

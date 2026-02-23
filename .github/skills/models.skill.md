@@ -17,6 +17,7 @@ Defines Pydantic models for structured agent outputs throughout the transcript a
 ## Key Symbols
 | Symbol | Type | Description |
 |--------|------|-------------|
+| `MeetingMetadata` | class | Metadata extracted from transcript with title and meeting datetime |
 | `Summary` | class | Meeting summary with content and key topics |
 | `ActionPoint` | class | Single action item with owner, deadline, and priority |
 | `ActionPoints` | class | Collection of action items |
@@ -32,6 +33,7 @@ Defines Pydantic models for structured agent outputs throughout the transcript a
 ## Inputs & Outputs
 | Symbol | Input | Output |
 |--------|-------|--------|
+| `MeetingMetadata.__init__` | `title: str` - meeting title (3-6 words), `meeting_datetime: datetime \| None` - meeting date/time | `MeetingMetadata` instance |
 | `Summary.__init__` | `content: str` - summary text, `key_topics: list[str]` - main topics | `Summary` instance |
 | `ActionPoint.__init__` | `description: str` - task description, `owner: str \| None` - person responsible, `deadline: str \| None` - due date, `priority: Literal` - high/medium/low | `ActionPoint` instance |
 | `ActionPoints.__init__` | `items: list[ActionPoint]` - list of action items | `ActionPoints` instance |
@@ -42,7 +44,7 @@ Defines Pydantic models for structured agent outputs throughout the transcript a
 | `Recap.__init__` | `highlights: list[str]` - key highlights, `decisions_made: list[str]` - decisions, `next_steps: list[str]` - next steps | `Recap` instance |
 | `MeetingTone.__init__` | `overall_sentiment: Literal` - positive/neutral/negative/mixed, `energy_level: Literal` - high/medium/low, `collaboration_quality: Literal` - excellent/good/fair/poor, `notes: str \| None` - additional observations | `MeetingTone` instance |
 | `KeyInsights.__init__` | `insights: list[str]` - important insights, `patterns: list[str]` - observed patterns, `recommendations: list[str]` - recommendations | `KeyInsights` instance |
-| `TranscriptAnalysis.__init__` | `source_file: str` - original filename, `processed_at: datetime` - processing timestamp, plus all worker outputs | `TranscriptAnalysis` instance |
+| `TranscriptAnalysis.__init__` | `source_file: str` - original filename, `processed_at: datetime` - processing timestamp, `metadata: MeetingMetadata \| None` - meeting metadata, plus all worker outputs | `TranscriptAnalysis` instance |
 
 ## Usage Example
 ```python
@@ -102,4 +104,5 @@ print(analysis_dict["summary"]["content"])
 ## Changelog
 | Date | Change |
 |------|--------|
+| 2025-01-17 | Added MeetingMetadata model with title and meeting_datetime fields; added TranscriptAnalysis.metadata field for meeting metadata |
 | 2026-02-22 | Initial skill created |

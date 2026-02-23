@@ -78,7 +78,7 @@ if record:
 ```
 
 ## Internal Dependencies
-- None (standalone module with no internal dependencies)
+- `structlog` — structured logging throughout the module
 
 ## External Dependencies
 - `pydantic` — Data validation and serialization for state models
@@ -96,8 +96,11 @@ if record:
 - **Cache behavior:** State is cached in memory after first load; call `load()` doesn't re-read from disk
 - **Concurrency:** Not thread-safe or process-safe; designed for single-process usage
 - **Testing:** Use `clear()` method to reset state between tests
+- **Structured logging:** All print/warning statements replaced with structlog calls
+- **UTC timestamps:** `mark_processed()` uses `datetime.now(timezone.utc)` instead of `datetime.now()` for consistency
 
 ## Changelog
 | Date | Change |
 |------|--------|
+| 2025-01-17 | Integrated structlog for structured logging; mark_processed now uses datetime.now(timezone.utc) for UTC timestamps |
 | 2026-02-22 | Initial skill created |

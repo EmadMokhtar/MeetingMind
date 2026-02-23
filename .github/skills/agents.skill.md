@@ -3,7 +3,7 @@
 > `src/meetingmind/agents.py`
 
 ## Overview
-Implements a manager-worker orchestration system using Pydantic AI agents for transcript analysis. The manager agent coordinates seven specialized worker agents, each extracting specific insights (summary, action points, todos, mentions, recap, tone, and key insights) from meeting transcripts. Uses lazy initialization to defer API key requirements until runtime.
+Implements a manager-worker orchestration system using Pydantic AI agents for transcript analysis. The manager agent coordinates eight specialized worker agents, each extracting specific insights (summary, action points, todos, mentions, recap, tone, key insights, and meeting metadata) from meeting transcripts. Uses lazy initialization to defer API key requirements until runtime.
 
 ## Capabilities
 - Analyze meeting transcripts using AI-powered agents
@@ -30,10 +30,12 @@ Implements a manager-worker orchestration system using Pydantic AI agents for tr
 | `recap_agent` | _LazyAgent | Worker agent specialized in creating meeting recaps |
 | `meeting_tone_agent` | _LazyAgent | Worker agent specialized in analyzing meeting tone |
 | `key_insights_agent` | _LazyAgent | Worker agent specialized in extracting strategic insights |
+| `meeting_metadata_agent` | _LazyAgent | Worker agent specialized in extracting meeting metadata (title and datetime) |
 | `manager_agent` | _LazyAgent | Manager agent that orchestrates all worker agents |
 | `analyze_transcript` | function | Main entry point to analyze a transcript using manager-worker orchestration |
 | `_get_model_string` | function | Gets the AI model string from settings and sets API keys |
 | `_register_manager_tools` | function | Registers worker agent tools on the manager agent |
+| `get_meeting_metadata` | tool | Tool registered on manager agent to extract meeting metadata from transcripts |
 
 ## Inputs & Outputs
 | Symbol | Input | Output |
@@ -93,4 +95,5 @@ asyncio.run(main())
 ## Changelog
 | Date | Change |
 |------|--------|
+| 2025-01-17 | Added meeting_metadata_agent and get_meeting_metadata tool for extracting meeting title and datetime; manager now orchestrates 8 worker agents; TranscriptAnalysis includes metadata field |
 | 2026-02-22 | Initial skill created |
