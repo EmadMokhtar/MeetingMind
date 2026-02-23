@@ -18,7 +18,7 @@ Provides configuration management for MeetingMind using Pydantic Settings. Loads
 ## Key Symbols
 | Symbol | Type | Description |
 |--------|------|-------------|
-| `ModelProvider` | enum | Enum for supported AI model providers (OPENAI, ANTHROPIC, TEST) |
+| `ModelProvider` | enum | Enum for supported AI model providers (OPENAI, ANTHROPIC, AZURE, TEST) |
 | `WatcherConfig` | class | Structured configuration for the file watcher component |
 | `Settings` | class | Main application settings loaded from environment and .env file |
 | `load_settings` | function | Factory function to load application settings |
@@ -88,3 +88,4 @@ print(settings.output_folder)
 |------|--------|
 | 2025-01-17 | Added ModelProvider enum to replace Literal type; added extra="allow" to SettingsConfigDict; changed default filename_template to "{meeting_timestamp}_{source_stem}.md" |
 | 2026-02-22 | Initial skill created |
+| 2026-02-23 | Added `ModelProvider.AZURE = "azure"` — Azure OpenAI is now a supported provider |
