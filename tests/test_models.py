@@ -1,6 +1,6 @@
 """Test Pydantic models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from meetingmind.models import (
     ActionPoint,
@@ -8,6 +8,7 @@ from meetingmind.models import (
     ImportantMention,
     ImportantMentions,
     KeyInsights,
+    MeetingMetadata,
     MeetingTone,
     Recap,
     Summary,
@@ -210,3 +211,81 @@ def test_transcript_analysis_model(subtests):
         assert hasattr(analysis, "recap")
         assert hasattr(analysis, "meeting_tone")
         assert hasattr(analysis, "key_insights")
+
+
+def test_meeting_metadata_when_valid_data_then_creates_model(subtests):
+    """Test MeetingMetadata model with valid data."""
+    metadata = MeetingMetadata(
+        title="Q4 Planning Meeting",
+        meeting_datetime=datetime(2024, 3, 15, 10, 30, tzinfo=timezone.utc),
+    )
+
+    with subtests.test("title"):
+        assert metadata.title == "Q4 Planning Meeting"
+
+    with subtests.test("meeting_datetime"):
+        assert metadata.meeting_datetime == datetime(2024, 3, 15, 10, 30, tzinfo=timezone.utc)
+
+    with subtests.test("meeting_datetime_has_timezone"):
+        assert metadata.meeting_datetime.tzinfo is not None
+
+
+def test_meeting_metadata_when_no_datetime_then_defaults_to_none(subtests):
+    """Test MeetingMetadata model defaults to None for meeting_datetime."""
+    metadata = MeetingMetadata(title="Sprint Retrospective")
+
+    with subtests.test("title"):
+        assert metadata.title == "Sprint Retrospective"
+
+    with subtests.test("meeting_datetime_default"):
+        assert metadata.meeting_datetime is None
+
+
+def test_transcript_analysis_when_metadata_provided_then_includes_metadata(subtests):
+    """Test TranscriptAnalysis includes metadata when provided."""
+    metadata = MeetingMetadata(
+        title="Team Sync",
+        meeting_datetime=datetime(2024, 3, 15, 10, 30, tzinfo=timezone.utc),
+    )
+
+    analysis = TranscriptAnalysis(
+        source_file="meeting.txt",
+        processed_at=datetime(2024, 3, 15, 11, 0, tzinfo=timezone.utc),
+        summary=Summary(content="Summary", key_topics=["Topic"]),
+        action_points=ActionPoints(items=[]),
+        todo_list=TodoList(items=[]),
+        important_mentions=ImportantMentions(items=[]),
+        recap=Recap(),
+        meeting_tone=MeetingTone(),
+        key_insights=KeyInsights(),
+        metadata=metadata,
+    )
+
+    with subtests.test("has_metadata"):
+        assert analysis.metadata is not None
+
+    with subtests.test("metadata_title"):
+        assert analysis.metadata.title == "Team Sync"
+
+    with subtests.test("metadata_datetime"):
+        assert analysis.metadata.meeting_datetime == datetime(
+            2024, 3, 15, 10, 30, tzinfo=timezone.utc
+        )
+
+
+def test_transcript_analysis_when_no_metadata_then_metadata_is_none(subtests):
+    """Test TranscriptAnalysis metadata defaults to None."""
+    analysis = TranscriptAnalysis(
+        source_file="meeting.txt",
+        processed_at=datetime(2024, 3, 15, 11, 0, tzinfo=timezone.utc),
+        summary=Summary(content="Summary", key_topics=["Topic"]),
+        action_points=ActionPoints(items=[]),
+        todo_list=TodoList(items=[]),
+        important_mentions=ImportantMentions(items=[]),
+        recap=Recap(),
+        meeting_tone=MeetingTone(),
+        key_insights=KeyInsights(),
+    )
+
+    with subtests.test("metadata_is_none"):
+        assert analysis.metadata is None

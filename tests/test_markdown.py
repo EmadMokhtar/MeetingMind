@@ -206,3 +206,82 @@ def test_generate_markdown_sections_present(subtests):
     for section in required_sections:
         with subtests.test(section=section):
             assert section in markdown
+
+
+def test_generate_output_filename_when_meeting_datetime_provided_then_uses_it(subtests):
+    """Test output filename uses meeting_datetime when provided."""
+    template = "{meeting_timestamp}_{source_stem}.md"
+    source_file = Path("/tmp/standup.txt")
+    processed_at = datetime(2024, 3, 15, 14, 0, tzinfo=timezone.utc)
+    meeting_datetime = datetime(2024, 3, 15, 10, 30, tzinfo=timezone.utc)
+
+    filename = generate_output_filename(
+        template, source_file, processed_at, meeting_datetime=meeting_datetime
+    )
+
+    with subtests.test("uses_meeting_datetime"):
+        # Should use meeting_datetime (10:30), not processed_at (14:00)
+        assert "20240315_103000" in filename
+
+    with subtests.test("not_processed_at"):
+        # Should NOT contain processed_at time
+        assert "20240315_140000" not in filename
+
+    with subtests.test("contains_source_stem"):
+        assert "standup" in filename
+
+    with subtests.test("full_format"):
+        assert filename == "20240315_103000_standup.md"
+
+
+def test_generate_output_filename_when_no_meeting_datetime_then_falls_back_to_processed_at(
+    subtests,
+):
+    """Test output filename falls back to processed_at when meeting_datetime is None."""
+    template = "{meeting_timestamp}_{source_stem}.md"
+    source_file = Path("/tmp/notes.txt")
+    processed_at = datetime(2024, 3, 15, 14, 0, tzinfo=timezone.utc)
+    meeting_datetime = None
+
+    filename = generate_output_filename(
+        template, source_file, processed_at, meeting_datetime=meeting_datetime
+    )
+
+    with subtests.test("uses_processed_at"):
+        # Should fall back to processed_at when meeting_datetime is None
+        assert "20240315_140000" in filename
+
+    with subtests.test("contains_source_stem"):
+        assert "notes" in filename
+
+    with subtests.test("full_format"):
+        assert filename == "20240315_140000_notes.md"
+
+
+def test_generate_output_filename_when_meeting_timestamp_template_then_formats_correctly(
+    subtests,
+):
+    """Test meeting_timestamp placeholder formats datetime correctly."""
+    template = "{meeting_timestamp}_{source_stem}.md"
+    source_file = Path("/tmp/planning_meeting.txt")
+    processed_at = datetime(2024, 3, 15, 16, 45, 30, tzinfo=timezone.utc)
+    meeting_datetime = datetime(2024, 3, 15, 10, 30, 15, tzinfo=timezone.utc)
+
+    filename = generate_output_filename(
+        template, source_file, processed_at, meeting_datetime=meeting_datetime
+    )
+
+    with subtests.test("correct_date_format"):
+        # Date: YYYYMMDD
+        assert "20240315" in filename
+
+    with subtests.test("correct_time_format"):
+        # Time: HHMMSS
+        assert "103015" in filename
+
+    with subtests.test("full_timestamp_format"):
+        # Full format: YYYYMMDD_HHMMSS
+        assert "20240315_103015" in filename
+
+    with subtests.test("complete_filename"):
+        assert filename == "20240315_103015_planning_meeting.md"
