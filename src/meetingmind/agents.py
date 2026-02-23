@@ -10,6 +10,7 @@ from meetingmind.models import (
     ActionPoints,
     ImportantMentions,
     KeyInsights,
+    MeetingMetadata,
     MeetingTone,
     Recap,
     Summary,
@@ -202,6 +203,17 @@ key_insights_agent = _LazyAgent(
     ),
 )
 
+meeting_metadata_agent = _LazyAgent(
+    model_factory=_get_model_string,
+    result_type=MeetingMetadata,
+    system_prompt=(
+        "You are an expert at extracting metadata from meeting transcripts. "
+        "Identify a short, descriptive meeting title (3 to 6 words) based on the main topic discussed. "
+        "Also extract the date and time the meeting took place if it is explicitly mentioned "
+        "in the transcript. If no date/time is mentioned, return null for meeting_datetime."
+    ),
+)
+
 
 # Manager agent context
 class ManagerContext:
@@ -257,6 +269,12 @@ def _register_manager_tools(agent: Agent) -> None:
         result = await key_insights_agent.run(ctx.deps.transcript)
         return result.output
 
+    @agent.tool
+    async def get_meeting_metadata(ctx: RunContext[ManagerContext]) -> MeetingMetadata:
+        """Get meeting metadata (title and datetime) from the meeting metadata worker agent."""
+        result = await meeting_metadata_agent.run(ctx.deps.transcript)
+        return result.output
+
 
 # Manager agent - orchestrates workers and aggregates results
 manager_agent = _LazyAgent(
@@ -284,7 +302,7 @@ async def analyze_transcript(transcript: str, source_file: str) -> TranscriptAna
         f"Analyze the meeting transcript from '{source_file}'. "
         "Use the available tools to gather insights from specialized worker agents. "
         "Call all worker tools to get: summary, action points, todo list, "
-        "important mentions, recap, meeting tone, and key insights. "
+        "important mentions, recap, meeting tone, key insights, and meeting metadata. "
         "Then aggregate all results into a comprehensive TranscriptAnalysis."
     )
 

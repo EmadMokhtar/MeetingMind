@@ -20,6 +20,7 @@ Provides the command-line interface (CLI) for MeetingMind using Click. Offers fo
 | Symbol | Type | Description |
 |--------|------|-------------|
 | `cli` | function | Main CLI group (entry point for all commands) |
+| `_configure_logging` | function | Configure structlog with ISO timestamps and console renderer |
 | `watch` | function | Watch command for continuous monitoring |
 | `process` | function | Process command for one-time batch processing |
 | `status` | function | Status command to view processing history |
@@ -61,6 +62,7 @@ meetingmind watch --help
 
 ## Internal Dependencies
 - `config` — load_settings for configuration management
+- `structlog` — structured logging throughout the module
 - `state` — StateStore for processing history and state management
 - `watcher` — TranscriptWatcher for file monitoring and processing
 
@@ -83,8 +85,11 @@ meetingmind watch --help
 - **Version option:** `@click.version_option()` adds automatic version display
 - **Settings isolation:** Each command loads settings independently for clean separation
 - **Error handling:** Errors during processing are reported but don't crash the CLI
+- **Structured logging:** All print statements replaced with structlog calls for consistent output
+- **Logging configuration:** `_configure_logging()` sets up structlog with ISO timestamps and console renderer, called at CLI startup
 
 ## Changelog
 | Date | Change |
 |------|--------|
+| 2025-01-17 | Added _configure_logging function for structlog setup; integrated structlog throughout for structured logging |
 | 2026-02-22 | Initial skill created |

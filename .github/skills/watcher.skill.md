@@ -43,7 +43,7 @@ Implements a file watcher that monitors a folder for new transcript files and au
 | `TranscriptWatcher.process_single_file` | `file_path: Path` - path to transcript file | None (raises exceptions on error) |
 | `TranscriptWatcher._get_eligible_files` | None | `list[Path]` - files to process |
 | `TranscriptWatcher._is_file_stable` | `file_path: Path` - file to check | `bool` - True if stable |
-| `TranscriptWatcher._process_file` | `file_path: Path` - file to process | None (async, raises on error) |
+| `TranscriptWatcher._process_file` | `file_path: Path` - file to process | None (async, raises on error, extracts meeting_datetime from analysis.metadata) |
 | `TranscriptWatcher._process_batch` | `files: list[Path]` - batch of files | None (async) |
 
 ## Usage Example
@@ -88,6 +88,7 @@ asyncio.run(watch_continuously())
 
 ## Internal Dependencies
 - `agents` — analyze_transcript function for AI-powered transcript analysis
+- `structlog` — structured logging throughout the module
 - `config` — WatcherConfig for watcher configuration
 - `markdown` — generate_markdown and generate_output_filename for output generation
 - `state` — StateStore for tracking processed files
@@ -111,8 +112,11 @@ asyncio.run(watch_continuously())
 - **Return values:** `process_once()` returns count of successfully processed files
 - **Single file processing:** `process_single_file()` bypasses the state store and processes the file directly
 - **Validation:** Single file processing validates file exists and has a supported extension
+- **Structured logging:** All print statements replaced with structlog calls for consistent, structured output
+- **Meeting datetime extraction:** Extracts `meeting_datetime` from `analysis.metadata` and passes to `generate_output_filename()`
 
 ## Changelog
 | Date | Change |
 |------|--------|
+| 2025-01-17 | Integrated structlog for structured logging; _process_file extracts meeting_datetime from analysis.metadata and passes to generate_output_filename |
 | 2026-02-22 | Initial skill created |

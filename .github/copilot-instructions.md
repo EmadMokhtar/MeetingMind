@@ -13,7 +13,7 @@ Always follow these conventions when generating or modifying Python code.
 - **Ruff** - linter and formatter (line length: 120)
 - **mypy** - static type checker
 - **structlog** - structured logging
-- **pytest** - testing framework (always run via `make test`)
+- **pytest** - testing framework (⛔ always run via `make test` or `uv run pytest` — NEVER `python -m pytest` or bare `pytest`)
 - **Prometheus** - metrics (`prometheus-client`)
 - **`python-dotenv`** - load API keys from `.env`
 

@@ -15,13 +15,13 @@
 
 ## Running Tests
 
-**CRITICAL: Always use `make test` - Never use `python -m pytest`**
+> ⛔ **NEVER run pytest directly. ALWAYS use `make test` or `uv run pytest`.**
 
 ### Command Priority
 
-1. **ALWAYS: Use Make** - `make test` or `make tests` (REQUIRED)
-2. **FALLBACK: Use UV** - `uv run pytest` only if Make unavailable
-3. **NEVER: Direct execution** - Never use `python -m pytest` or bare `pytest`
+1. **ALWAYS: Use Make** — `make test` or `make tests` (REQUIRED)
+2. **FALLBACK: Use UV** — `uv run pytest` only if Make unavailable
+3. **⛔ NEVER: Direct execution** — `python -m pytest`, `pytest`, `python pytest` are PROHIBITED
 
 ```bash
 # ✅ REQUIRED: Use Make commands
@@ -36,10 +36,10 @@ uv run pytest -k "test_user"    # Run tests matching pattern
 uv run pytest -v                # Verbose output
 
 # ❌ NEVER USE (BLOCKED):
-python -m pytest tests/api/test_users.py -v    # WRONG
-python -m pytest                               # WRONG
-pytest                                         # WRONG
-pytest tests/unit/ -v                          # WRONG
+pytest                                         # ❌ PROHIBITED — missing UV isolation
+python -m pytest tests/api/test_users.py -v    # ❌ PROHIBITED — wrong Python version
+python -m pytest                               # ❌ PROHIBITED
+python pytest                                  # ❌ PROHIBITED
 ```
 
 **Why `make test` is required:**

@@ -2,14 +2,18 @@
 
 import asyncio
 import signal
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import structlog
 
 from meetingmind.agents import analyze_transcript
 from meetingmind.config import WatcherConfig
 from meetingmind.markdown import generate_markdown, generate_output_filename
 from meetingmind.state import StateStore
+
+logger = structlog.get_logger(__name__)
 
 
 class TranscriptWatcher:
@@ -29,7 +33,7 @@ class TranscriptWatcher:
 
     def _signal_handler(self, signum: int, frame: Any) -> None:
         """Handle shutdown signals."""
-        print(f"\nReceived signal {signum}, initiating graceful shutdown...")
+        logger.info("signal_received", signal=signum, action="graceful_shutdown")
         self._running = False
         try:
             loop = asyncio.get_running_loop()
@@ -70,11 +74,11 @@ class TranscriptWatcher:
         assert self._semaphore is not None, "_semaphore must be initialized before processing"
         async with self._semaphore:
             try:
-                print(f"Processing: {file_path.name}")
+                logger.info("processing_file", file=file_path.name)
 
                 # Check file stability
                 if not await self._is_file_stable(file_path):
-                    print(f"  Skipping (file not stable): {file_path.name}")
+                    logger.info("file_not_stable", file=file_path.name, action="skipped")
                     return
 
                 # Read transcript
@@ -87,8 +91,9 @@ class TranscriptWatcher:
                 markdown_content = generate_markdown(analysis)
 
                 # Determine output path
+                meeting_dt = analysis.metadata.meeting_datetime if analysis.metadata else None
                 output_filename = generate_output_filename(
-                    self.config.filename_template, file_path, datetime.now()
+                    self.config.filename_template, file_path, datetime.now(timezone.utc), meeting_dt
                 )
                 output_path = self.config.output_folder / output_filename
 
@@ -101,10 +106,15 @@ class TranscriptWatcher:
                 # Mark as processed
                 self.state_store.mark_processed(file_path, output_path)
 
-                print(f"  ✓ Completed: {file_path.name} -> {output_filename}")
+                logger.info(
+                    "file_completed",
+                    source=file_path.name,
+                    output=output_filename,
+                    status="success",
+                )
 
             except Exception as e:
-                print(f"  ✗ Error processing {file_path.name}: {e}")
+                logger.error("file_processing_error", file=file_path.name, error=str(e))
                 # Don't mark as processed on error
                 raise
 
@@ -113,7 +123,7 @@ class TranscriptWatcher:
         if not files:
             return
 
-        print(f"Found {len(files)} new file(s) to process")
+        logger.info("batch_found", file_count=len(files))
 
         tasks = [self._process_file(file_path) for file_path in files]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -121,9 +131,9 @@ class TranscriptWatcher:
         # Report any errors
         errors = [(files[i], r) for i, r in enumerate(results) if isinstance(r, Exception)]
         if errors:
-            print(f"Completed batch with {len(errors)} error(s):")
+            logger.warning("batch_completed_with_errors", error_count=len(errors))
             for file_path, error in errors:
-                print(f"  - {file_path.name}: {error}")
+                logger.error("batch_error_detail", file=file_path.name, error=str(error))
 
     async def watch(self) -> None:
         """Start watching for new transcript files."""
@@ -131,13 +141,14 @@ class TranscriptWatcher:
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent_files)
         self._setup_signal_handlers()
 
-        print("Starting MeetingMind watcher")
-        print(f"  Input folder: {self.config.input_folder.resolve()}")
-        print(f"  Output folder: {self.config.output_folder.resolve()}")
-        print(f"  Extensions: {', '.join(self.config.file_extensions)}")
-        print(f"  Max concurrent: {self.config.max_concurrent_files}")
-        print(f"  Poll interval: {self.config.poll_interval_seconds}s")
-        print()
+        logger.info(
+            "watcher_starting",
+            input_folder=str(self.config.input_folder.resolve()),
+            output_folder=str(self.config.output_folder.resolve()),
+            extensions=", ".join(self.config.file_extensions),
+            max_concurrent=self.config.max_concurrent_files,
+            poll_interval=self.config.poll_interval_seconds,
+        )
 
         # Ensure input folder exists
         self.config.input_folder.mkdir(parents=True, exist_ok=True)
@@ -163,10 +174,10 @@ class TranscriptWatcher:
                     pass
 
             except Exception as e:
-                print(f"Error in watch loop: {e}")
+                logger.error("watch_loop_error", error=str(e))
                 await asyncio.sleep(self.config.poll_interval_seconds)
 
-        print("\nShutdown complete")
+        logger.info("watcher_shutdown_complete")
 
     async def process_once(self) -> int:
         """
@@ -184,10 +195,10 @@ class TranscriptWatcher:
         eligible_files = await asyncio.to_thread(self._get_eligible_files)
 
         if not eligible_files:
-            print("No new files to process")
+            logger.info("no_new_files")
             return 0
 
-        print(f"Found {len(eligible_files)} new file(s) to process")
+        logger.info("batch_found", file_count=len(eligible_files))
 
         tasks = [self._process_file(file_path) for file_path in eligible_files]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -198,9 +209,9 @@ class TranscriptWatcher:
         # Report any errors
         errors = [(eligible_files[i], r) for i, r in enumerate(results) if isinstance(r, Exception)]
         if errors:
-            print(f"Completed batch with {len(errors)} error(s):")
+            logger.warning("batch_completed_with_errors", error_count=len(errors))
             for file_path, error in errors:
-                print(f"  - {file_path.name}: {error}")
+                logger.error("batch_error_detail", file=file_path.name, error=str(error))
 
         return success_count
 

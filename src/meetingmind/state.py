@@ -1,10 +1,13 @@
 """Persistent state management for processed files."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
+import structlog
 from pydantic import BaseModel, Field
+
+logger = structlog.get_logger(__name__)
 
 
 class ProcessedFileRecord(BaseModel):
@@ -46,7 +49,7 @@ class StateStore:
             self._state = ProcessedFilesState.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             # Corrupted state file, start fresh
-            print(f"Warning: corrupted state file ({e}), starting fresh")
+            logger.warning("state_file_corrupted", error=str(e), action="starting_fresh")
             self._state = ProcessedFilesState()
 
         return self._state
@@ -88,7 +91,7 @@ class StateStore:
 
         record = ProcessedFileRecord(
             path=abs_path,
-            processed_at=datetime.now(),
+            processed_at=datetime.now(timezone.utc),
             output_path=str(output_path.resolve()) if output_path else None,
         )
 

@@ -1,11 +1,14 @@
 """Test agent orchestration using Pydantic AI testing tools."""
 
+from datetime import datetime, timezone
+
 import pytest
 from pydantic_ai.models.test import TestModel
 
 from meetingmind.agents import (
     action_points_agent,
     key_insights_agent,
+    meeting_metadata_agent,
     meeting_tone_agent,
     recap_agent,
     summary_agent,
@@ -15,6 +18,7 @@ from meetingmind.models import (
     ActionPoint,
     ActionPoints,
     KeyInsights,
+    MeetingMetadata,
     MeetingTone,
     Recap,
     Summary,
@@ -159,6 +163,24 @@ async def test_key_insights_agent_with_test_model(sample_transcript, subtests):
 
 
 @pytest.mark.asyncio
+async def test_meeting_metadata_agent_with_test_model(sample_transcript, subtests):
+    """Test meeting metadata agent extracts title and datetime."""
+    test_metadata = MeetingMetadata(
+        title="Q4 Planning Meeting",
+        meeting_datetime=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+    )
+
+    with meeting_metadata_agent.override(model=TestModel(custom_output_args=test_metadata)):
+        result = await meeting_metadata_agent.run(sample_transcript)
+
+        with subtests.test("returns_meeting_metadata"):
+            assert isinstance(result.output, MeetingMetadata)
+
+        with subtests.test("has_title"):
+            assert len(result.output.title) > 0
+
+
+@pytest.mark.asyncio
 async def test_agent_types(subtests):
     """Test that all agents have correct result types."""
     with subtests.test("summary_agent"):
@@ -178,3 +200,6 @@ async def test_agent_types(subtests):
 
     with subtests.test("key_insights_agent"):
         assert key_insights_agent.result_type == KeyInsights
+
+    with subtests.test("meeting_metadata_agent"):
+        assert meeting_metadata_agent.result_type == MeetingMetadata

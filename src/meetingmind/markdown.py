@@ -8,9 +8,14 @@ from meetingmind.models import TranscriptAnalysis
 
 def generate_markdown(analysis: TranscriptAnalysis) -> str:
     """Generate a formatted markdown document from transcript analysis."""
+    if analysis.metadata and analysis.metadata.title:
+        title = analysis.metadata.title
+    else:
+        title = Path(analysis.source_file).stem
     lines = [
-        f"# Meeting Analysis: {analysis.source_file}",
+        f"# {title}",
         "",
+        f"**Source:** `{analysis.source_file}`",
         f"**Processed:** {analysis.processed_at.strftime('%Y-%m-%d %H:%M:%S')}",
         "",
         "---",
@@ -180,17 +185,24 @@ def generate_markdown(analysis: TranscriptAnalysis) -> str:
     return "\n".join(lines)
 
 
-def generate_output_filename(template: str, source_file: Path, timestamp: datetime) -> str:
-    """
-    Generate output filename from template with placeholders.
+def generate_output_filename(
+    template: str,
+    source_file: Path,
+    processed_at: datetime,
+    meeting_datetime: datetime | None = None,
+) -> str:
+    """Generate output filename from template with placeholders.
 
     Supported placeholders:
     - {source_stem}: Original filename without extension
-    - {timestamp}: Current timestamp in YYYYMMDD_HHMMSS format
+    - {timestamp}: Processing timestamp in YYYYMMDD_HHMMSS format (kept for compatibility)
+    - {meeting_timestamp}: Meeting datetime in YYYYMMDD_HHMMSS format; falls back to processed_at
     """
+    meeting_ts = (meeting_datetime or processed_at).strftime("%Y%m%d_%H%M%S")
     replacements = {
         "source_stem": source_file.stem,
-        "timestamp": timestamp.strftime("%Y%m%d_%H%M%S"),
+        "timestamp": processed_at.strftime("%Y%m%d_%H%M%S"),
+        "meeting_timestamp": meeting_ts,
     }
 
     result = template

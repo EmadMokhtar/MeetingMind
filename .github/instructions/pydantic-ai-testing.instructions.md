@@ -8,7 +8,7 @@ Reference: https://ai.pydantic.dev/testing/
 
 ## Strategy
 
-- Use **`make test`** to run all tests (never `python -m pytest` directly — see `pytest.instructions.md`).
+- Use **`make test`** to run all tests — ⛔ NEVER use `python`, `python -m pytest`, or bare `pytest` directly (see `pytest.instructions.md`).
 - Use **pytest** as the test harness.
 - Use **`TestModel`** or **`FunctionModel`** instead of real LLM calls — no API cost, no latency, no variability.
 - Use **`Agent.override`** to inject test models into application code without modifying the call site.

@@ -1,10 +1,26 @@
 """Configuration management for MeetingMind."""
 
+from enum import Enum
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ModelProvider(str, Enum):
+    """Supported AI model providers.
+
+    Attributes:
+        OPENAI: OpenAI (GPT models).
+        ANTHROPIC: Anthropic (Claude models).
+        AZURE: Azure OpenAI.
+        TEST: Test/mock provider for unit tests.
+    """
+
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    AZURE = "azure"
+    TEST = "test"
 
 
 class WatcherConfig(BaseModel):
@@ -16,7 +32,7 @@ class WatcherConfig(BaseModel):
     poll_interval_seconds: float = Field(default=5.0, ge=1.0)
     stability_check_seconds: float = Field(default=2.0, ge=0.5)
     max_concurrent_files: int = Field(default=3, ge=1, le=10)
-    filename_template: str = Field(default="{source_stem}_{timestamp}.md")
+    filename_template: str = Field(default="{meeting_timestamp}_{source_stem}.md")
 
 
 class Settings(BaseSettings):
@@ -41,6 +57,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="allow",
     )
 
     # Watcher configuration
@@ -50,13 +67,13 @@ class Settings(BaseSettings):
     poll_interval_seconds: float = Field(default=5.0)
     stability_check_seconds: float = Field(default=2.0)
     max_concurrent_files: int = Field(default=3)
-    filename_template: str = Field(default="{source_stem}_{timestamp}.md")
+    filename_template: str = Field(default="{meeting_timestamp}_{source_stem}.md")
 
     # State persistence
     state_file: Path = Field(default=Path(".meetingmind_state.json"))
 
     # Model configuration
-    model_provider: Literal["openai", "anthropic", "test"] = Field(default="openai")
+    model_provider: ModelProvider = Field(default=ModelProvider.OPENAI)
     model_name: str = Field(default="gpt-4")
     api_key: SecretStr | None = Field(default=None)
 
