@@ -1,7 +1,7 @@
 """Persistent state management for processed files."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
@@ -91,7 +91,7 @@ class StateStore:
 
         record = ProcessedFileRecord(
             path=abs_path,
-            processed_at=datetime.now(),
+            processed_at=datetime.now(timezone.utc),
             output_path=str(output_path.resolve()) if output_path else None,
         )
 

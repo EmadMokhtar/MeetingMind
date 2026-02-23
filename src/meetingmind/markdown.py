@@ -8,9 +8,10 @@ from meetingmind.models import TranscriptAnalysis
 
 def generate_markdown(analysis: TranscriptAnalysis) -> str:
     """Generate a formatted markdown document from transcript analysis."""
-    title = (analysis.metadata.title if analysis.metadata else None) or Path(
-        analysis.source_file
-    ).stem
+    if analysis.metadata and analysis.metadata.title:
+        title = analysis.metadata.title
+    else:
+        title = Path(analysis.source_file).stem
     lines = [
         f"# {title}",
         "",

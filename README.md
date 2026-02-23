@@ -245,7 +245,7 @@ MEETINGMIND_POLL_INTERVAL_SECONDS=5.0
 MEETINGMIND_STABILITY_CHECK_SECONDS=2.0
 
 # Output filename template
-# Placeholders: {source_stem}, {timestamp}
+# Placeholders: {source_stem}, {timestamp}, {meeting_timestamp}
 MEETINGMIND_FILENAME_TEMPLATE={source_stem}_{timestamp}.md
 
 # State file location
