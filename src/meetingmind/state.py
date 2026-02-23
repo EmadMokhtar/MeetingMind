@@ -4,7 +4,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import structlog
 from pydantic import BaseModel, Field
+
+logger = structlog.get_logger(__name__)
 
 
 class ProcessedFileRecord(BaseModel):
@@ -46,7 +49,7 @@ class StateStore:
             self._state = ProcessedFilesState.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             # Corrupted state file, start fresh
-            print(f"Warning: corrupted state file ({e}), starting fresh")
+            logger.warning("state_file_corrupted", error=str(e), action="starting_fresh")
             self._state = ProcessedFilesState()
 
         return self._state

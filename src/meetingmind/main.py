@@ -1,21 +1,40 @@
 """CLI entry point for MeetingMind."""
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
 import click
+import structlog
 
 from meetingmind.config import load_settings
 from meetingmind.state import StateStore
 from meetingmind.watcher import TranscriptWatcher
+
+logger = structlog.get_logger(__name__)
+
+
+def _configure_logging() -> None:
+    """Configure structlog for the application."""
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.ConsoleRenderer(),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+    )
 
 
 @click.group()
 @click.version_option()
 def cli():
     """MeetingMind - Intelligent transcript processor with AI-powered insights."""
-    pass
+    _configure_logging()
 
 
 @cli.command()
@@ -68,7 +87,7 @@ def watch(
     try:
         asyncio.run(watcher.watch())
     except KeyboardInterrupt:
-        print("\nInterrupted by user")
+        logger.info("interrupted_by_user")
         sys.exit(0)
 
 
@@ -113,9 +132,9 @@ def process(
     # Process once
     try:
         count = asyncio.run(watcher.process_once())
-        print(f"\nProcessed {count} file(s)")
+        logger.info("processing_complete", files_processed=count)
     except KeyboardInterrupt:
-        print("\nInterrupted by user")
+        logger.info("interrupted_by_user")
         sys.exit(1)
 
 
@@ -128,21 +147,23 @@ def status():
     records = state_store.get_all_processed()
 
     if not records:
-        print("No files have been processed yet")
+        logger.info("no_files_processed")
         return
 
-    print(f"Total files processed: {len(records)}")
-    print("\nRecent files:")
+    logger.info("files_processed_total", count=len(records))
+    logger.info("recent_files_header")
 
     # Sort by processed_at descending
     sorted_records = sorted(records, key=lambda r: r.processed_at, reverse=True)
 
     for record in sorted_records[:10]:
         path = Path(record.path)
-        print(f"  • {path.name}")
-        print(f"    Processed: {record.processed_at.strftime('%Y-%m-%d %H:%M:%S')}")
-        if record.output_path:
-            print(f"    Output: {Path(record.output_path).name}")
+        logger.info(
+            "file_record",
+            filename=path.name,
+            processed_at=record.processed_at.strftime("%Y-%m-%d %H:%M:%S"),
+            output=Path(record.output_path).name if record.output_path else None,
+        )
 
 
 @cli.command()
@@ -152,7 +173,7 @@ def reset():
     settings = load_settings()
     state_store = StateStore(settings.state_file)
     state_store.clear()
-    print("Processing state has been reset")
+    logger.info("state_reset")
 
 
 if __name__ == "__main__":
