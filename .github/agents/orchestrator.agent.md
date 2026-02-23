@@ -68,6 +68,26 @@ After creating the design, delegate tasks to appropriate agents:
 
 1. Call `@technical-writer` to document the feature
 
+### Phase 6: Skill Documentation
+
+After documentation is complete, ensure skill files are up to date:
+
+1. Identify which modules were created or modified
+2. Call `@technical-writer` to create/update skill files for those modules
+3. New modules → create `.github/skills/<module>.skill.md`
+4. Modified modules → update the corresponding skill file changelog and affected sections
+
+**Delegation prompt:**
+```
+@technical-writer
+Update skill files for the following modules that were modified in this feature:
+- src/meetingmind/<module1>.py → .github/skills/<module1>.skill.md
+- src/meetingmind/<module2>.py → .github/skills/<module2>.skill.md
+
+Changes made: [brief description]
+Follow the template in .github/instructions/skills.instructions.md
+```
+
 ## Design Output Template
 
 Always output your design in this format:
@@ -96,6 +116,7 @@ Always output your design in this format:
 - [ ] 🔒 Security review → @senior-security-engineer
 - [ ] 🧪 Write tests → @senior-qa-engineer
 - [ ] 📚 Document feature → @technical-writer
+- [ ] 📖 Update skill files → @technical-writer
 
 ## Acceptance Criteria
 
@@ -343,6 +364,11 @@ Enforce these quality standards:
 - ✅ Configuration documented
 - ✅ README updated
 - ✅ Inline comments where needed
+
+### Skill Files Gate
+- ✅ Skill file exists for every new module
+- ✅ Skill files updated for all modified modules
+- ✅ Changelog entry added with today's date
 
 ## Best Practices
 

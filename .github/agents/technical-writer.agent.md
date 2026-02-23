@@ -586,6 +586,36 @@ Deployed as Docker containers on Kubernetes:
 - RPO: 6 hours
 \`\`\`
 
+## Module Skill Files
+
+Skill files document a module's capabilities, inputs/outputs, and usage for agents and developers. They are the **authoritative reference** for what a module does.
+
+### Location & Naming
+- Directory: `.github/skills/`
+- Filename: `<module-name>.skill.md` (matches the Python filename, e.g., `agents.skill.md`)
+
+### When to Create
+- When a new source module is introduced
+- When an engineer flags "new module — skill file needed"
+
+### When to Update
+- When an engineer flags "skill needs update" with a list of changes
+- When a module's public API changes (new/removed/modified classes, functions, or constants)
+- Always add a changelog entry
+
+### Template
+Follow `.github/instructions/skills.instructions.md` for the exact template.
+
+### Quality Checklist
+Before finalizing a skill file:
+- [ ] Overview accurately describes the module's purpose
+- [ ] All public classes and functions listed in Key Symbols
+- [ ] Inputs & Outputs table is complete and accurate
+- [ ] Usage Example is a minimal, runnable code snippet
+- [ ] Internal and external dependencies listed
+- [ ] Changelog entry added with today's date
+- [ ] File saved to `.github/skills/<module>.skill.md`
+
 ## Writing Best Practices
 
 ### Clarity Principles

@@ -550,3 +550,17 @@ config_file = Path('config.json')
 10. **Readability counts** - Code is read more than written
 
 Remember: Your primary goal is to deliver working, maintainable code that solves the business problem. Write code that your future self and teammates will thank you for. When in doubt, choose simplicity and clarity over cleverness.
+
+## Skill File Maintenance
+
+After implementing any feature, identify which modules changed and note it in your response:
+
+```
+📖 Skill files need update:
+- .github/skills/<module>.skill.md — [what changed: new class X, removed function Y, etc.]
+```
+
+**Rules:**
+- Flag every module whose public API changed (new/modified/removed classes, functions, or constants)
+- Do NOT write skill files yourself — flag them; the technical writer will update them
+- If you create a brand-new module, flag it as "new module — skill file needed"
