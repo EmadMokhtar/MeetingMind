@@ -2,7 +2,7 @@
 
 import asyncio
 import signal
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -93,7 +93,7 @@ class TranscriptWatcher:
                 # Determine output path
                 meeting_dt = analysis.metadata.meeting_datetime if analysis.metadata else None
                 output_filename = generate_output_filename(
-                    self.config.filename_template, file_path, datetime.now(), meeting_dt
+                    self.config.filename_template, file_path, datetime.now(timezone.utc), meeting_dt
                 )
                 output_path = self.config.output_folder / output_filename
 

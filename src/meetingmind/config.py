@@ -13,11 +13,13 @@ class ModelProvider(str, Enum):
     Attributes:
         OPENAI: OpenAI (GPT models).
         ANTHROPIC: Anthropic (Claude models).
+        AZURE: Azure OpenAI.
         TEST: Test/mock provider for unit tests.
     """
 
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    AZURE = "azure"
     TEST = "test"
 
 

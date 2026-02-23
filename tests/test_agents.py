@@ -1,5 +1,7 @@
 """Test agent orchestration using Pydantic AI testing tools."""
 
+from datetime import datetime, timezone
+
 import pytest
 from pydantic_ai.models.test import TestModel
 
@@ -165,7 +167,7 @@ async def test_meeting_metadata_agent_with_test_model(sample_transcript, subtest
     """Test meeting metadata agent extracts title and datetime."""
     test_metadata = MeetingMetadata(
         title="Q4 Planning Meeting",
-        meeting_datetime="2024-01-15T10:00:00Z",
+        meeting_datetime=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
     )
 
     with meeting_metadata_agent.override(model=TestModel(custom_output_args=test_metadata)):

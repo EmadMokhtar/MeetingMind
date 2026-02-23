@@ -1,7 +1,6 @@
 """CLI entry point for MeetingMind."""
 
 import asyncio
-import logging
 import sys
 from pathlib import Path
 
@@ -9,32 +8,18 @@ import click
 import structlog
 
 from meetingmind.config import load_settings
+from meetingmind.observability import configure_logging
 from meetingmind.state import StateStore
 from meetingmind.watcher import TranscriptWatcher
 
 logger = structlog.get_logger(__name__)
 
 
-def _configure_logging() -> None:
-    """Configure structlog for the application."""
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer(),
-        ],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-        context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
-    )
-
-
 @click.group()
 @click.version_option()
 def cli():
     """MeetingMind - Intelligent transcript processor with AI-powered insights."""
-    _configure_logging()
+    configure_logging()
 
 
 @cli.command()
