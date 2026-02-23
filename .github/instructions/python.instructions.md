@@ -1387,29 +1387,34 @@ For complete guidance, see `pytest.instructions.md`.
 
 > 📖 **Official UV CLI Reference**: https://docs.astral.sh/uv/reference/cli/
 
+> ⛔ **NEVER run Python directly. ALWAYS use `make` commands (first) or `uv` commands (fallback).**
+> Running `python`, `python3`, `python -m`, bare `pytest`, bare `ruff`, or bare `mypy` directly is PROHIBITED.
+
 ### Core Principle: Always Use UV
 
 **CRITICAL**: ALL Python commands MUST be run through `uv`. Never use bare `python`, `pip`, or tool executables directly.
 
 | ❌ NEVER USE | ✅ ALWAYS USE | Purpose |
 |---|---|---|
-| `python script.py` | `uv run python script.py` | Running scripts |
-| `python -m pytest` | `uv run pytest` | Running tests |
+| `python script.py` | `make run` or `uv run python script.py` | Running scripts |
+| `python3 script.py` | `make run` or `uv run python script.py` | Running scripts |
+| `python -m pytest` | `make test` or `uv run pytest` | Running tests |
+| `python -m ruff` | `make lint` or `uv run ruff check .` | Linting |
+| `python -m mypy` | `uv run mypy .` | Type checking |
+| `pytest` | `make test` or `uv run pytest` | Running tests |
+| `ruff check .` | `make lint` or `uv run ruff check .` | Linting |
+| `mypy .` | `uv run mypy .` | Type checking |
 | `pip install package` | `uv add package` | Adding a dependency |
 | `pip install -e ".[dev]"` | `uv sync` | Installing all project dependencies |
-| `ruff check .` | `uv run ruff check .` | Linting |
-| `mypy .` | `uv run mypy .` | Type checking |
 | `uvicorn app:main` | `uv run uvicorn app:main` | Running the server |
 | `celery worker` | `uv run celery worker` | Running workers |
-| `pytest` | `uv run pytest` | Running tests |
 
 ### Command Priority: Makefile First, UV Second
 
-**CRITICAL**: Always follow this order when running Python commands:
-
-1. **First: Check Makefile** - Look for relevant `make` command
-2. **Second: Use UV** - If no Make command exists, use `uv run <command>`
-3. **Never: Direct execution** - Never use `python`, `python -m`, or bare tool commands
+**CRITICAL: NEVER run `python` directly. The command priority is:**
+1. **ALWAYS FIRST: `make <command>`** — Use Makefile targets whenever available
+2. **SECOND: `uv run <command>`** — If no Make target exists, wrap with `uv run`
+3. **⛔ NEVER: Direct execution** — `python`, `python3`, `python -m`, bare tool names are PROHIBITED
 
 **Why?**
 - Make commands are pre-configured with correct flags and environment
@@ -1482,10 +1487,11 @@ uv run pytest -v                 # Verbose output
 uv run pytest -x                 # Stop on first failure
 uv run pytest --cov              # With coverage
 
-# ❌ NEVER USE:
-pytest                           # Missing UV isolation
-python -m pytest                 # Wrong Python version
-python pytest                    # Won't work
+# ❌ NEVER USE (PROHIBITED):
+pytest                           # ❌ PROHIBITED — missing UV isolation
+python -m pytest tests/api/test_users.py -v  # ❌ PROHIBITED — wrong Python version
+python -m pytest                 # ❌ PROHIBITED
+python pytest                    # ❌ PROHIBITED
 ```
 
 ### Code Quality
@@ -1505,10 +1511,11 @@ uv run mypy .                    # Type checking
 make lint                        # Run linter (ruff check)
 make format                      # Format code (ruff format + ruff check --fix)
 
-# ❌ NEVER USE:
-ruff check .                     # Missing UV isolation
-mypy .                           # Missing UV isolation
-python -m ruff                   # Wrong Python version
+# ❌ NEVER USE (PROHIBITED):
+ruff check .                     # ❌ PROHIBITED — missing UV isolation
+mypy .                           # ❌ PROHIBITED — missing UV isolation
+python -m ruff                   # ❌ PROHIBITED — wrong Python version
+python -m mypy                   # ❌ PROHIBITED — wrong Python version
 ```
 
 **Formatting Rules:**
@@ -1528,10 +1535,11 @@ uv run uvicorn app.main:app --reload   # Start FastAPI server
 uv run celery -A app.workers worker    # Start Celery worker
 uv run meetingmind watch               # Run the MeetingMind watcher
 
-# ❌ NEVER USE:
-uvicorn app.main:app             # Missing UV isolation
-python -m uvicorn                # Wrong Python version
-celery worker                    # Missing UV isolation
+# ❌ NEVER USE (PROHIBITED):
+uvicorn app.main:app             # ❌ PROHIBITED — missing UV isolation
+python -m uvicorn                # ❌ PROHIBITED — wrong Python version
+celery worker                    # ❌ PROHIBITED — missing UV isolation
+python -m celery                 # ❌ PROHIBITED — wrong Python version
 ```
 
 ### Tools (Global CLI Tools)
