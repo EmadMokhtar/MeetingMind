@@ -30,7 +30,7 @@ def test_watcher_config_defaults(subtests):
         assert config.max_concurrent_files == 3
 
     with subtests.test("filename_template"):
-        assert config.filename_template == "{source_stem}_{timestamp}.md"
+        assert config.filename_template == "{meeting_timestamp}_{source_stem}.md"
 
 
 def test_settings_defaults(subtests):

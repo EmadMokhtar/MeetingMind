@@ -107,7 +107,7 @@ def test_generate_markdown_complete(subtests):
     markdown = generate_markdown(analysis)
 
     with subtests.test("has_title"):
-        assert "# Meeting Analysis: meeting.txt" in markdown
+        assert "# meeting" in markdown
 
     with subtests.test("has_summary_section"):
         assert "## 📋 Summary" in markdown

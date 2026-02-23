@@ -6,6 +6,21 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class MeetingMetadata(BaseModel):
+    """Metadata extracted from a meeting transcript.
+
+    Attributes:
+        title: Human-readable meeting title (3–6 words).
+        meeting_datetime: When the meeting took place, if mentioned in the transcript.
+    """
+
+    title: str = Field(description="Short, descriptive meeting title (3–6 words)")
+    meeting_datetime: datetime | None = Field(
+        default=None,
+        description="Date and time the meeting took place, extracted from transcript content",
+    )
+
+
 class Summary(BaseModel):
     """Meeting summary extracted by worker agent."""
 
@@ -98,3 +113,7 @@ class TranscriptAnalysis(BaseModel):
     recap: Recap
     meeting_tone: MeetingTone
     key_insights: KeyInsights
+    metadata: MeetingMetadata | None = Field(
+        default=None,
+        description="Metadata extracted from the transcript (title, meeting datetime)",
+    )
