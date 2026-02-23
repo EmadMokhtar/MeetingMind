@@ -56,7 +56,7 @@ output_filename = generate_output_filename(
     source_file=source_file,
     timestamp=timestamp
 )
-# Result: "q4_planning_20240222_143052.md"
+# Result: "q4_planning_20260223_143052.md"
 print(f"Generated filename: {output_filename}")
 ```
 

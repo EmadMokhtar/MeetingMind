@@ -53,12 +53,12 @@ from meetingmind.state import StateStore
 state_store = StateStore(state_file=Path(".meetingmind_state.json"))
 
 # Check if a file has been processed
-transcript_file = Path("transcripts/meeting_20240222.txt")
+transcript_file = Path("transcripts/meeting_20260222.txt")
 if state_store.is_processed(transcript_file):
     print("Already processed, skipping...")
 else:
     # Process the file...
-    output_file = Path("outputs/meeting_20240222_analysis.md")
+    output_file = Path("outputs/meeting_20260222_analysis.md")
     
     # Mark as processed
     record = state_store.mark_processed(

@@ -607,7 +607,7 @@ Skill files document a module's capabilities, inputs/outputs, and usage for agen
 Follow `.github/instructions/skills.instructions.md` for the exact template.
 
 ### Quality Checklist
-Before finalising a skill file:
+Before finalizing a skill file:
 - [ ] Overview accurately describes the module's purpose
 - [ ] All public classes and functions listed in Key Symbols
 - [ ] Inputs & Outputs table is complete and accurate

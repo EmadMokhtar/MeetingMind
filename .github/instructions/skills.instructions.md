@@ -210,8 +210,8 @@ If a module is deprecated or removed:
 
 ## Related Documentation
 
-- [Contributing Guide](../../CONTRIBUTING.md) — How to contribute to MeetingMind
-- [Architecture Documentation](../../docs/architecture.md) — System design overview
+- Contributing Guide — How to contribute to MeetingMind (see repository root if available)
+- [Technical Reference](../../docs/technical-reference.md) — System components and design details
 
 ---
 
