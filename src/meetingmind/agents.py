@@ -208,9 +208,16 @@ meeting_metadata_agent = _LazyAgent(
     result_type=MeetingMetadata,
     system_prompt=(
         "You are an expert at extracting metadata from meeting transcripts. "
-        "Identify a short, descriptive meeting title (3 to 6 words) based on the main topic discussed. "
-        "Also extract the date and time the meeting took place if it is explicitly mentioned "
-        "in the transcript. If no date/time is mentioned, return null for meeting_datetime."
+        "You will receive both the transcript content and the source filename. "
+        "Extract the meeting title and datetime using these rules:\n\n"
+        "1. MEETING TITLE: First, check if the filename contains a descriptive meeting name "
+        "(e.g., 'product-roadmap-review.txt', 'Q4-planning-session.md'). If so, use that as the basis "
+        "for the title. Otherwise, derive a short, descriptive title (3 to 6 words) from the main topic "
+        "discussed in the transcript.\n\n"
+        "2. MEETING DATETIME: First, check if the filename contains a date or timestamp "
+        "(e.g., '2024-03-15-meeting.txt', 'meeting_20240315.md'). If so, parse and use that date. "
+        "Otherwise, look for explicit date/time mentions in the transcript content. "
+        "If no date/time can be found in either the filename or transcript, return null for meeting_datetime."
     ),
 )
 
@@ -272,7 +279,11 @@ def _register_manager_tools(agent: Agent) -> None:
     @agent.tool
     async def get_meeting_metadata(ctx: RunContext[ManagerContext]) -> MeetingMetadata:
         """Get meeting metadata (title and datetime) from the meeting metadata worker agent."""
-        result = await meeting_metadata_agent.run(ctx.deps.transcript)
+        prompt = (
+            f"Source filename: {ctx.deps.source_file}\n\n"
+            f"Transcript content:\n{ctx.deps.transcript}"
+        )
+        result = await meeting_metadata_agent.run(prompt)
         return result.output
 
 
