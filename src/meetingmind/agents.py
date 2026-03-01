@@ -1,6 +1,7 @@
 """Pydantic AI agents for transcript analysis."""
 
 import os
+import warnings
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,22 +20,40 @@ from meetingmind.models import (
 )
 
 
+def _check_deprecated_api_key() -> None:
+    """Check for deprecated MEETINGMIND_API_KEY and warn users to migrate."""
+    if os.environ.get("MEETINGMIND_API_KEY"):
+        warnings.warn(
+            "MEETINGMIND_API_KEY is deprecated and no longer used. "
+            "Please use the provider-specific environment variables instead:\n"
+            "  - OpenAI: OPENAI_API_KEY\n"
+            "  - Anthropic: ANTHROPIC_API_KEY\n"
+            "  - Azure: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION\n"
+            "See https://ai.pydantic.dev/models/ for more details.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
+
 def _get_model_string() -> str:
-    """Get the model string from settings lazily."""
+    """Get the model string from settings lazily.
+
+    Returns a model string in the format 'provider:model_name' that Pydantic AI
+    understands natively. Each provider reads its configuration from standard
+    environment variables:
+
+    - OpenAI: OPENAI_API_KEY
+    - Anthropic: ANTHROPIC_API_KEY
+    - Azure: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION
+
+    See Pydantic AI documentation for more details:
+    https://ai.pydantic.dev/models/
+    """
     from meetingmind.config import Settings
 
+    _check_deprecated_api_key()
+
     settings = Settings()
-
-    # Set API key if configured and not already in environment
-    if settings.api_key:
-        provider_env_var = {
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-        }.get(settings.model_provider)
-
-        if provider_env_var and not os.environ.get(provider_env_var):
-            os.environ[provider_env_var] = settings.get_api_key()
-
     return f"{settings.model_provider}:{settings.model_name}"
 
 
@@ -208,9 +227,16 @@ meeting_metadata_agent = _LazyAgent(
     result_type=MeetingMetadata,
     system_prompt=(
         "You are an expert at extracting metadata from meeting transcripts. "
-        "Identify a short, descriptive meeting title (3 to 6 words) based on the main topic discussed. "
-        "Also extract the date and time the meeting took place if it is explicitly mentioned "
-        "in the transcript. If no date/time is mentioned, return null for meeting_datetime."
+        "You will receive both the transcript content and the source filename. "
+        "Extract the meeting title and datetime using these rules:\n\n"
+        "1. MEETING TITLE: First, check if the filename contains a descriptive meeting name "
+        "(e.g., 'product-roadmap-review.txt', 'Q4-planning-session.md'). If so, use that as the basis "
+        "for the title. Otherwise, derive a short, descriptive title (3 to 6 words) from the main topic "
+        "discussed in the transcript.\n\n"
+        "2. MEETING DATETIME: First, check if the filename contains a date or timestamp "
+        "(e.g., '2024-03-15-meeting.txt', 'meeting_20240315.md'). If so, parse and use that date. "
+        "Otherwise, look for explicit date/time mentions in the transcript content. "
+        "If no date/time can be found in either the filename or transcript, return null for meeting_datetime."
     ),
 )
 
@@ -272,7 +298,11 @@ def _register_manager_tools(agent: Agent) -> None:
     @agent.tool
     async def get_meeting_metadata(ctx: RunContext[ManagerContext]) -> MeetingMetadata:
         """Get meeting metadata (title and datetime) from the meeting metadata worker agent."""
-        result = await meeting_metadata_agent.run(ctx.deps.transcript)
+        prompt = (
+            f"Source filename: {ctx.deps.source_file}\n\n"
+            f"Transcript content:\n{ctx.deps.transcript}"
+        )
+        result = await meeting_metadata_agent.run(prompt)
         return result.output
 
 

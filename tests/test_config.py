@@ -149,6 +149,9 @@ def test_model_provider_when_openai_then_equals_string_openai(subtests):
     with subtests.test("anthropic_value"):
         assert ModelProvider.ANTHROPIC == "anthropic"
 
+    with subtests.test("azure_value"):
+        assert ModelProvider.AZURE == "azure"
+
     with subtests.test("test_value"):
         assert ModelProvider.TEST == "test"
 
@@ -156,6 +159,7 @@ def test_model_provider_when_openai_then_equals_string_openai(subtests):
         # ModelProvider inherits from str
         assert isinstance(ModelProvider.OPENAI, str)
         assert isinstance(ModelProvider.ANTHROPIC, str)
+        assert isinstance(ModelProvider.AZURE, str)
 
 
 def test_model_provider_when_string_env_var_then_parses_correctly(subtests):
@@ -193,6 +197,18 @@ def test_model_provider_when_string_env_var_then_parses_correctly(subtests):
             os.environ["MEETINGMIND_MODEL_PROVIDER"] = "test"
             settings = Settings()
             assert settings.model_provider == ModelProvider.TEST
+        finally:
+            if original is not None:
+                os.environ["MEETINGMIND_MODEL_PROVIDER"] = original
+            else:
+                os.environ.pop("MEETINGMIND_MODEL_PROVIDER", None)
+
+    with subtests.test("azure_string"):
+        original = os.environ.get("MEETINGMIND_MODEL_PROVIDER")
+        try:
+            os.environ["MEETINGMIND_MODEL_PROVIDER"] = "azure"
+            settings = Settings()
+            assert settings.model_provider == ModelProvider.AZURE
         finally:
             if original is not None:
                 os.environ["MEETINGMIND_MODEL_PROVIDER"] = original
