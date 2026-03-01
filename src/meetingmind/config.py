@@ -3,7 +3,7 @@
 from enum import Enum
 from pathlib import Path
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,9 +47,14 @@ class Settings(BaseSettings):
         max_concurrent_files: Maximum number of files to process concurrently
         filename_template: Template for output filenames (supports {source_stem}, {timestamp})
         state_file: Path to state persistence file
-        model_provider: AI model provider (openai, anthropic, or test)
+        model_provider: AI model provider (openai, anthropic, azure, or test)
         model_name: Name of the AI model to use
-        api_key: API key for the model provider (stored securely)
+
+    Note:
+        API keys are configured via standard provider environment variables:
+        - OpenAI: OPENAI_API_KEY
+        - Anthropic: ANTHROPIC_API_KEY
+        - Azure: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION
     """
 
     model_config = SettingsConfigDict(
@@ -75,15 +80,6 @@ class Settings(BaseSettings):
     # Model configuration
     model_provider: ModelProvider = Field(default=ModelProvider.OPENAI)
     model_name: str = Field(default="gpt-4")
-    api_key: SecretStr | None = Field(default=None)
-
-    def get_api_key(self) -> str | None:
-        """Get the API key value.
-
-        Returns:
-            The API key as a plain string, or None if not set.
-        """
-        return self.api_key.get_secret_value() if self.api_key else None
 
     def get_watcher_config(self) -> WatcherConfig:
         """Convert settings to watcher config."""

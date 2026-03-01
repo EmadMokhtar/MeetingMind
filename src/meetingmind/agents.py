@@ -1,6 +1,5 @@
 """Pydantic AI agents for transcript analysis."""
 
-import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,21 +19,22 @@ from meetingmind.models import (
 
 
 def _get_model_string() -> str:
-    """Get the model string from settings lazily."""
+    """Get the model string from settings lazily.
+
+    Returns a model string in the format 'provider:model_name' that Pydantic AI
+    understands natively. Each provider reads its configuration from standard
+    environment variables:
+
+    - OpenAI: OPENAI_API_KEY
+    - Anthropic: ANTHROPIC_API_KEY
+    - Azure: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION
+
+    See Pydantic AI documentation for more details:
+    https://ai.pydantic.dev/models/
+    """
     from meetingmind.config import Settings
 
     settings = Settings()
-
-    # Set API key if configured and not already in environment
-    if settings.api_key:
-        provider_env_var = {
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-        }.get(settings.model_provider)
-
-        if provider_env_var and not os.environ.get(provider_env_var):
-            os.environ[provider_env_var] = settings.get_api_key()
-
     return f"{settings.model_provider}:{settings.model_name}"
 
 

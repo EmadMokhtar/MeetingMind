@@ -106,7 +106,7 @@ nano .env
 Update the API key line:
 
 ```env
-MEETINGMIND_API_KEY=sk-proj-your-actual-key-here
+OPENAI_API_KEY=sk-proj-your-actual-key-here
 ```
 
 Save and close the file.
@@ -378,17 +378,29 @@ nano .env
 The minimal `.env` file needs just one line:
 
 ```env
-MEETINGMIND_API_KEY=sk-proj-your-actual-api-key-here
+OPENAI_API_KEY=sk-proj-your-actual-api-key-here
 ```
 
 Replace `sk-proj-your-actual-api-key-here` with your real OpenAI API key (starts with `sk-`).
+
+Note: MeetingMind uses Pydantic AI's native provider support, which reads API keys from standard environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.).
 
 **For Anthropic/Claude Users:**
 
 ```env
 MEETINGMIND_MODEL_PROVIDER=anthropic
 MEETINGMIND_MODEL_NAME=claude-3-5-sonnet-latest
-MEETINGMIND_API_KEY=sk-ant-your-anthropic-key-here
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+```
+
+**For Azure OpenAI Users:**
+
+```env
+MEETINGMIND_MODEL_PROVIDER=azure
+MEETINGMIND_MODEL_NAME=your-deployment-name
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-azure-api-key
+OPENAI_API_VERSION=2024-07-01-preview
 ```
 
 ⚠️ **Security Warning**
@@ -415,9 +427,13 @@ All settings can be configured via environment variables in your `.env` file. He
 | Seconds to wait before processing a file | `MEETINGMIND_STABILITY_CHECK_SECONDS` | `2.0` | `5.0` (for slow network drives) |
 | Template for output filenames | `MEETINGMIND_FILENAME_TEMPLATE` | `{source_stem}_{timestamp}.md` | `analysis_{source_stem}.md` |
 | Where processing history is stored | `MEETINGMIND_STATE_FILE` | `.meetingmind_state.json` | `.state/history.json` |
-| Which AI provider to use | `MEETINGMIND_MODEL_PROVIDER` | `openai` | `anthropic` |
+| Which AI provider to use | `MEETINGMIND_MODEL_PROVIDER` | `openai` | `anthropic` or `azure` |
 | Which AI model to use | `MEETINGMIND_MODEL_NAME` | `gpt-4` | `gpt-4-turbo-preview` or `claude-3-5-sonnet-latest` |
-| Your API key | `MEETINGMIND_API_KEY` | *(none)* | `sk-proj-abc123...` |
+| OpenAI API key | `OPENAI_API_KEY` | *(none)* | `sk-proj-abc123...` |
+| Anthropic API key | `ANTHROPIC_API_KEY` | *(none)* | `sk-ant-abc123...` |
+| Azure endpoint | `AZURE_OPENAI_ENDPOINT` | *(none)* | `https://your-resource.openai.azure.com/` |
+| Azure API key | `AZURE_OPENAI_API_KEY` | *(none)* | Your Azure API key |
+| Azure API version | `OPENAI_API_VERSION` | *(none)* | `2024-07-01-preview` |
 
 **About Filename Templates**
 
@@ -486,18 +502,26 @@ MEETINGMIND_STATE_FILE=.meetingmind_state.json
 # AI Model Settings
 # ------------------
 
-# Which AI provider to use: "openai" or "anthropic"
+# Which AI provider to use: "openai", "anthropic", or "azure"
 MEETINGMIND_MODEL_PROVIDER=openai
 
 # Which model to use
 # OpenAI options: gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo
 # Anthropic options: claude-3-5-sonnet-latest, claude-3-opus-latest
+# Azure: use your deployment name
 MEETINGMIND_MODEL_NAME=gpt-4
 
-# Your API key (keep this secret!)
+# API keys - set the one for your provider (keep these secret!)
 # Get OpenAI keys at: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-proj-your-actual-key-here
+
 # Get Anthropic keys at: https://console.anthropic.com/
-MEETINGMIND_API_KEY=sk-proj-your-actual-key-here
+# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+
+# For Azure OpenAI, set these three variables:
+# AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+# AZURE_OPENAI_API_KEY=your-azure-api-key
+# OPENAI_API_VERSION=2024-07-01-preview
 ```
 
 **Pro Tip:** Keep multiple `.env` files for different scenarios:
