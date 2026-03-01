@@ -30,7 +30,7 @@ def _check_deprecated_api_key() -> None:
             "  - Anthropic: ANTHROPIC_API_KEY\n"
             "  - Azure: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION\n"
             "See https://ai.pydantic.dev/models/ for more details.",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
 
