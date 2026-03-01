@@ -1,5 +1,7 @@
 """Pydantic AI agents for transcript analysis."""
 
+import os
+import warnings
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,6 +20,21 @@ from meetingmind.models import (
 )
 
 
+def _check_deprecated_api_key() -> None:
+    """Check for deprecated MEETINGMIND_API_KEY and warn users to migrate."""
+    if os.environ.get("MEETINGMIND_API_KEY"):
+        warnings.warn(
+            "MEETINGMIND_API_KEY is deprecated and no longer used. "
+            "Please use the provider-specific environment variables instead:\n"
+            "  - OpenAI: OPENAI_API_KEY\n"
+            "  - Anthropic: ANTHROPIC_API_KEY\n"
+            "  - Azure: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION\n"
+            "See https://ai.pydantic.dev/models/ for more details.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+
 def _get_model_string() -> str:
     """Get the model string from settings lazily.
 
@@ -33,6 +50,8 @@ def _get_model_string() -> str:
     https://ai.pydantic.dev/models/
     """
     from meetingmind.config import Settings
+
+    _check_deprecated_api_key()
 
     settings = Settings()
     return f"{settings.model_provider}:{settings.model_name}"
